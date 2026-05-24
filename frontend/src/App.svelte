@@ -1,71 +1,64 @@
 <script lang="ts">
-  import { BrowseForFile, OpenFile, GetTimePos, StopPlayer, GetPresets, GetMPVPath, BrowseForMPV, TestIPC } from '../wailsjs/go/main/App.js'
-  import type { preset } from '../wailsjs/go/models'
-  type Preset = preset.Preset
+  import {
+    GetSession, GetPresets, GetMPVPath, BrowseForMPV,
+    GetTimePos, StopPlayer, GetOpenTags, GetRegions,
+    OpenFile
+  } from '../wailsjs/go/main/App.js'
+  import type { preset as presetNS } from '../wailsjs/go/models'
+  import SessionPanel from './lib/SessionPanel.svelte'
+  import TagPanel from './lib/TagPanel.svelte'
+  import RegionList from './lib/RegionList.svelte'
+  import NotesField from './lib/NotesField.svelte'
+  import Transport from './lib/Transport.svelte'
+  import {
+    currentSession, presets, activePreset, entries, openTags
+  } from './stores/session'
+  import {
+    timePos, mpvRunning, paused, speed, startPolling, stopPolling
+  } from './stores/playback'
 
-  let filePath = ''
-  let timePos: number | null = null
+  type Preset = presetNS.Preset
+
   let status = ''
   let statusOk = true
-  let running = false
-  let presets: Preset[] = []
   let mpvPath = ''
 
-  async function refreshMPVPath() {
-    try { mpvPath = await GetMPVPath() } catch (_) {}
+  function setStatus(msg: string, ok: boolean) {
+    status = msg
+    statusOk = ok
   }
 
-  async function browse() {
+  async function init() {
     try {
-      const p = await BrowseForFile()
-      if (p) filePath = p
-    } catch (e) {
-      setStatus(String(e), false)
-    }
+      mpvPath = await GetMPVPath()
+    } catch {}
+    try {
+      const s = await GetSession()
+      currentSession.set(s)
+    } catch {}
+    try {
+      const ps = await GetPresets()
+      presets.set(ps)
+      if (ps.length > 0 && !$activePreset) {
+        activePreset.set(ps[0])
+      }
+    } catch {}
+    await refreshEntries()
+    await refreshOpenTags()
   }
 
-  async function openFile() {
-    if (!filePath) return
-    status = 'opening mpv…'
-    statusOk = true
+  async function refreshEntries() {
     try {
-      await OpenFile(filePath)
-      running = true
-      setStatus('mpv running', true)
-      await loadPresets()
-    } catch (e) {
-      running = false
-      setStatus(String(e), false)
-    }
+      const e = await GetRegions()
+      entries.set(e ?? [])
+    } catch {}
   }
 
-  async function getTime() {
+  async function refreshOpenTags() {
     try {
-      timePos = await GetTimePos()
-      setStatus('', true)
-    } catch (e) {
-      setStatus(String(e), false)
-    }
-  }
-
-  async function stop() {
-    try {
-      await StopPlayer()
-      running = false
-      timePos = null
-      setStatus('mpv stopped', true)
-    } catch (e) {
-      setStatus(String(e), false)
-    }
-  }
-
-  async function testIPC() {
-    try {
-      const v = await TestIPC()
-      setStatus('IPC ok — ' + v, true)
-    } catch (e) {
-      setStatus('IPC error: ' + String(e), false)
-    }
+      const t = await GetOpenTags()
+      openTags.set(t ?? [])
+    } catch {}
   }
 
   async function browseMPV() {
@@ -80,65 +73,113 @@
     }
   }
 
-  async function loadPresets() {
+  function onSessionOpened() {
+    mpvRunning.set(true)
+    paused.set(false)
+    speed.set(1)
+    startPolling(async () => {
+      const t = await GetTimePos()
+      timePos.set(t)
+      return t
+    })
+    refreshEntries()
+    refreshOpenTags()
+    setStatus('mpv running', true)
+  }
+
+  function onStop() {
+    stopPolling()
+    mpvRunning.set(false)
+    timePos.set(0)
+    openTags.set([])
+    setStatus('mpv stopped', true)
+  }
+
+  async function stop() {
     try {
-      presets = await GetPresets()
-    } catch (_) {}
+      await StopPlayer()
+      onStop()
+    } catch (e) {
+      setStatus(String(e), false)
+    }
   }
 
-  function setStatus(msg: string, ok: boolean) {
-    status = msg
-    statusOk = ok
+  function onPresetChange(e: Event) {
+    const name = (e.target as HTMLSelectElement).value
+    activePreset.set($presets.find(p => p.name === name) ?? null)
   }
 
-  function formatTime(s: number): string {
-    const h = Math.floor(s / 3600)
-    const m = Math.floor((s % 3600) / 60)
-    const sec = (s % 60).toFixed(3)
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${sec.padStart(6,'0')}`
-  }
-
-  // Load presets and mpv path on mount
-  loadPresets()
-  refreshMPVPath()
+  init()
 </script>
 
 <main>
   <header>
     <span class="title">footage</span>
-    <span class="subtitle">phase 0 — smoke test</span>
+    <span class="subtitle">v0.1 — logging core</span>
+    <div class="header-right">
+      <span class="mpv-path" class:not-found={!mpvPath} title={mpvPath || 'mpv not found'}>
+        {mpvPath ? 'mpv ✓' : 'mpv not found'}
+      </span>
+      {#if !mpvPath}
+        <button on:click={browseMPV} class="small-btn">locate…</button>
+      {/if}
+    </div>
   </header>
 
-  <section class="panel">
-    <div class="row">
-      <label>mpv</label>
-      <span class="path-display" class:not-found={!mpvPath}>
-        {mpvPath || 'not found'}
-      </span>
-      <button on:click={browseMPV} title="manually locate mpv.exe">locate…</button>
+  <div class="layout">
+    <!-- left column: session + tag panel -->
+    <div class="left-col">
+      <section class="panel">
+        <SessionPanel
+          on:error={e => setStatus(e.detail, false)}
+          on:opened={onSessionOpened}
+        />
+      </section>
+
+      <section class="panel">
+        <div class="preset-row">
+          <label class="dim-label">preset</label>
+          <select
+            value={$activePreset?.name ?? ''}
+            on:change={onPresetChange}
+          >
+            {#each $presets as p}
+              <option value={p.name}>{p.name}</option>
+            {/each}
+          </select>
+        </div>
+        <TagPanel
+          on:refresh={() => { refreshEntries(); refreshOpenTags() }}
+          on:refreshTags={refreshOpenTags}
+          on:error={e => setStatus(e.detail, false)}
+        />
+      </section>
+
+      <section class="panel transport-panel">
+        <Transport />
+        <button
+          on:click={stop}
+          disabled={!$mpvRunning}
+          class="stop-btn"
+        >stop mpv</button>
+      </section>
     </div>
 
-    <div class="row">
-      <label>video file</label>
-      <input type="text" bind:value={filePath} placeholder="path to video…" class="path-input" readonly />
-      <button on:click={browse}>browse</button>
+    <!-- right column: region list + notes -->
+    <div class="right-col">
+      <NotesField
+        on:saved={refreshEntries}
+        on:error={e => setStatus(e.detail, false)}
+      />
+      <section class="panel region-panel">
+        <RegionList
+          on:refresh={refreshEntries}
+          on:status={e => setStatus(e.detail, true)}
+          on:error={e => setStatus(e.detail, false)}
+        />
+      </section>
     </div>
-
-    <div class="row">
-      <label>&nbsp;</label>
-      <button on:click={openFile} disabled={!filePath || running || !mpvPath}>open in mpv</button>
-      <button on:click={stop} disabled={!running}>stop mpv</button>
-    </div>
-
-    <div class="row">
-      <label>playback</label>
-      <button on:click={getTime} disabled={!running}>get time</button>
-      {#if timePos !== null}
-        <span class="time-display">{formatTime(timePos)}</span>
-      {/if}
-      <button on:click={testIPC} disabled={!running} title="query mpv-version to verify IPC health">test ipc</button>
-    </div>
-  </section>
+  </div>
 
   {#if status}
     <div class="status" class:ok={statusOk} class:err={!statusOk}>
@@ -146,28 +187,13 @@
     </div>
   {/if}
 
-  {#if presets.length > 0}
-    <section class="panel presets">
-      <div class="panel-title">presets ({presets.length})</div>
-      {#each presets as preset}
-        <div class="preset-row">
-          <span class="preset-name">{preset.name}</span>
-          <span class="preset-tags">
-            {#each preset.tags as tag}
-              <span class="tag" style="background: {tag.color}22; border: 1px solid {tag.color}44; color: {tag.color};">
-                {tag.key}  {tag.label}
-              </span>
-            {/each}
-          </span>
-        </div>
-      {/each}
-    </section>
-  {/if}
-
   <footer>
-    <span class:running={running} class:stopped={!running}>
-      mpv: {running ? 'running' : 'not running'}
+    <span class:running={$mpvRunning} class:stopped={!$mpvRunning}>
+      mpv: {$mpvRunning ? 'running' : 'not running'}
     </span>
+    {#if $currentSession}
+      <span class="dim">  ·  {$currentSession.name}</span>
+    {/if}
   </footer>
 </main>
 
@@ -176,16 +202,18 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    padding: 16px;
-    gap: 12px;
+    padding: 12px;
+    gap: 10px;
+    overflow: hidden;
   }
 
   header {
     display: flex;
     align-items: baseline;
-    gap: 12px;
+    gap: 10px;
     padding-bottom: 8px;
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
   }
 
   .title {
@@ -199,62 +227,111 @@
     font-size: 11px;
   }
 
-  .panel {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .panel-title {
-    color: var(--text-dim);
-    font-size: 11px;
-    margin-bottom: 4px;
-    letter-spacing: 0.05em;
-  }
-
-  .row {
+  .header-right {
+    margin-left: auto;
     display: flex;
     align-items: center;
     gap: 8px;
   }
 
-  label {
-    width: 80px;
-    color: var(--text-dim);
-    flex-shrink: 0;
-  }
-
-  .path-input {
-    flex: 1;
-  }
-
-  .path-display {
-    flex: 1;
-    color: var(--green);
+  .mpv-path {
     font-size: 11px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    color: var(--green);
   }
 
-  .path-display.not-found {
+  .mpv-path.not-found {
     color: var(--red);
   }
 
-  .time-display {
-    color: var(--accent);
-    font-size: 15px;
-    letter-spacing: 0.05em;
-    padding: 0 8px;
+  .small-btn {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .layout {
+    display: flex;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .left-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 280px;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .region-panel {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .transport-panel {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .preset-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dim-label {
+    color: var(--text-dim);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  select {
+    flex: 1;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 3px 6px;
+    font-family: inherit;
+    font-size: 12px;
+  }
+
+  .stop-btn {
+    font-size: 11px;
+    color: var(--red);
+    border-color: var(--red);
+    opacity: 0.7;
+  }
+
+  .stop-btn:hover:not(:disabled) {
+    opacity: 1;
   }
 
   .status {
-    padding: 6px 10px;
+    padding: 5px 10px;
     border-left: 3px solid;
     font-size: 12px;
+    flex-shrink: 0;
   }
 
   .status.ok {
@@ -269,39 +346,11 @@
     background: #e8919e11;
   }
 
-  .presets {
-    flex: 1;
-    overflow-y: auto;
-  }
-
-  .preset-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .preset-row:last-child {
-    border-bottom: none;
-  }
-
-  .preset-name {
-    width: 120px;
-    flex-shrink: 0;
-    color: var(--accent);
-  }
-
-  .preset-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
   footer {
-    padding-top: 8px;
+    padding-top: 6px;
     border-top: 1px solid var(--border);
     font-size: 11px;
+    flex-shrink: 0;
   }
 
   .running {
@@ -309,6 +358,10 @@
   }
 
   .stopped {
+    color: var(--text-dim);
+  }
+
+  .dim {
     color: var(--text-dim);
   }
 </style>

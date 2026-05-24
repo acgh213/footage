@@ -4,6 +4,7 @@ go 1.22.0
 
 require (
 	github.com/Microsoft/go-winio v0.6.2
+	github.com/oklog/ulid/v2 v2.1.1
 	github.com/wailsapp/wails/v2 v2.12.0
 )
 
