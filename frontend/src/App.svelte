@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BrowseForFile, OpenFile, GetTimePos, StopPlayer, GetPresets } from '../wailsjs/go/main/App.js'
+  import { BrowseForFile, OpenFile, GetTimePos, StopPlayer, GetPresets, GetMPVPath, BrowseForMPV } from '../wailsjs/go/main/App.js'
   import type { preset } from '../wailsjs/go/models'
   type Preset = preset.Preset
 
@@ -9,6 +9,11 @@
   let statusOk = true
   let running = false
   let presets: Preset[] = []
+  let mpvPath = ''
+
+  async function refreshMPVPath() {
+    try { mpvPath = await GetMPVPath() } catch (_) {}
+  }
 
   async function browse() {
     try {
@@ -54,6 +59,18 @@
     }
   }
 
+  async function browseMPV() {
+    try {
+      const p = await BrowseForMPV()
+      if (p) {
+        mpvPath = p
+        setStatus('mpv path set: ' + p, true)
+      }
+    } catch (e) {
+      setStatus(String(e), false)
+    }
+  }
+
   async function loadPresets() {
     try {
       presets = await GetPresets()
@@ -72,8 +89,9 @@
     return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${sec.padStart(6,'0')}`
   }
 
-  // Load presets on mount
+  // Load presets and mpv path on mount
   loadPresets()
+  refreshMPVPath()
 </script>
 
 <main>
@@ -84,6 +102,14 @@
 
   <section class="panel">
     <div class="row">
+      <label>mpv</label>
+      <span class="path-display" class:not-found={!mpvPath}>
+        {mpvPath || 'not found'}
+      </span>
+      <button on:click={browseMPV} title="manually locate mpv.exe">locate…</button>
+    </div>
+
+    <div class="row">
       <label>video file</label>
       <input type="text" bind:value={filePath} placeholder="path to video…" class="path-input" readonly />
       <button on:click={browse}>browse</button>
@@ -91,7 +117,7 @@
 
     <div class="row">
       <label>&nbsp;</label>
-      <button on:click={openFile} disabled={!filePath || running}>open in mpv</button>
+      <button on:click={openFile} disabled={!filePath || running || !mpvPath}>open in mpv</button>
       <button on:click={stop} disabled={!running}>stop mpv</button>
     </div>
 
@@ -193,6 +219,19 @@
 
   .path-input {
     flex: 1;
+  }
+
+  .path-display {
+    flex: 1;
+    color: var(--green);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .path-display.not-found {
+    color: var(--red);
   }
 
   .time-display {

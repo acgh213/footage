@@ -4,6 +4,10 @@ import {preset} from '../models';
 
 export function BrowseForFile():Promise<string>;
 
+export function BrowseForMPV():Promise<string>;
+
+export function GetMPVPath():Promise<string>;
+
 export function GetMPVStatus():Promise<boolean>;
 
 export function GetPresets():Promise<Array<preset.Preset>>;

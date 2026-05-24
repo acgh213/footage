@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -101,6 +102,12 @@ func (p *Player) stopLocked() error {
 	return nil
 }
 
+// ResolvedPath returns the mpv binary path the player resolved to, or "" if
+// none was found. Used by the frontend for diagnostics.
+func (p *Player) ResolvedPath() string {
+	return p.mpvPath
+}
+
 // IsRunning reports whether mpv is currently running.
 func (p *Player) IsRunning() bool {
 	p.mu.Lock()
@@ -180,33 +187,97 @@ func pollForPipe(name string, timeout time.Duration) (net.Conn, error) {
 	return nil, fmt.Errorf("timed out waiting for mpv named pipe %s", name)
 }
 
-// resolveMPVPath finds the mpv binary in priority order:
-//  1. user-configured path (from config.json)
-//  2. PATH
-//  3. assets/mpv/mpv.exe relative to this executable
-//  4. assets/mpv/mpv.exe two levels up (wails dev mode)
+// resolveMPVPath finds the mpv binary. Search order:
+//  1. user-configured path from config.json
+//  2. LookPath for common executable names (mpv, mpvnet, mpv.exe, mpvnet.exe)
+//  3. cmd.exe /C where — catches cases where GUI process PATH != console PATH
+//  4. WinGet packages directory scan (covers mpv.net WinGet installs)
+//  5. Common fixed install locations
+//  6. assets/mpv/mpv.exe relative to the running executable (bundled)
 func resolveMPVPath(configured string) string {
 	if configured != "" {
-		if _, err := os.Stat(configured); err == nil {
-			return configured
+		if abs, err := filepath.Abs(configured); err == nil {
+			if _, err := os.Stat(abs); err == nil {
+				return abs
+			}
 		}
 	}
-	if path, err := exec.LookPath("mpv"); err == nil {
-		return path
+
+	// Try LookPath with all common names for mpv on Windows.
+	for _, name := range []string{"mpv", "mpv.exe", "mpvnet", "mpvnet.exe"} {
+		if path, err := exec.LookPath(name); err == nil {
+			return path
+		}
 	}
+
+	// cmd.exe /C where — the Windows shell can find things the Go process misses
+	// when PATH was updated after the process launched (e.g. WinGet install).
+	for _, name := range []string{"mpv", "mpvnet"} {
+		out, err := exec.Command("cmd.exe", "/C", "where", name).Output()
+		if err == nil {
+			if line := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]; line != "" {
+				line = strings.TrimSpace(line)
+				if _, err := os.Stat(line); err == nil {
+					return line
+				}
+			}
+		}
+	}
+
+	// Scan the WinGet packages directory for any mpv.exe or mpvnet.exe.
+	// WinGet installs to %LOCALAPPDATA%\Microsoft\WinGet\Packages\{id}_{source}\{version}\
+	if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+		wingetPkgs := filepath.Join(localAppData, "Microsoft", "WinGet", "Packages")
+		for _, name := range []string{"mpv.exe", "mpvnet.exe"} {
+			// Walk one level: Packages/<pkg>/<version>/<exe>
+			pattern := filepath.Join(wingetPkgs, "*", "*", name)
+			if matches, err := filepath.Glob(pattern); err == nil && len(matches) > 0 {
+				return matches[0]
+			}
+			// Some packages land without a version subdirectory.
+			pattern = filepath.Join(wingetPkgs, "*", name)
+			if matches, err := filepath.Glob(pattern); err == nil && len(matches) > 0 {
+				return matches[0]
+			}
+		}
+		// Also check WinGet links directory (shimmed executables).
+		wingetLinks := filepath.Join(localAppData, "Microsoft", "WinGet", "Links")
+		for _, name := range []string{"mpv.exe", "mpvnet.exe"} {
+			p := filepath.Join(wingetLinks, name)
+			if _, err := os.Stat(p); err == nil {
+				return p
+			}
+		}
+	}
+
+	// Common fixed install paths.
+	for _, p := range []string{
+		`C:\Program Files\mpv\mpv.exe`,
+		`C:\Program Files\mpv.net\mpv.exe`,
+		`C:\Program Files\mpv.net\mpvnet.exe`,
+		`C:\mpv\mpv.exe`,
+	} {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+
+	// Bundled copy relative to the running executable.
 	exe, err := os.Executable()
 	if err != nil {
 		return ""
 	}
 	exeDir := filepath.Dir(exe)
-	candidates := []string{
-		filepath.Join(exeDir, "assets", "mpv", "mpv.exe"),
-		filepath.Join(exeDir, "..", "..", "assets", "mpv", "mpv.exe"),
-		filepath.Join(exeDir, "..", "..", "..", "assets", "mpv", "mpv.exe"),
-	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c
+	for _, rel := range []string{
+		filepath.Join("assets", "mpv", "mpv.exe"),
+		filepath.Join("..", "..", "assets", "mpv", "mpv.exe"),
+		filepath.Join("..", "..", "..", "assets", "mpv", "mpv.exe"),
+	} {
+		p := filepath.Join(exeDir, rel)
+		if abs, err := filepath.Abs(p); err == nil {
+			if _, err := os.Stat(abs); err == nil {
+				return abs
+			}
 		}
 	}
 	return ""

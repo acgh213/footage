@@ -6,6 +6,14 @@ export function BrowseForFile() {
   return window['go']['main']['App']['BrowseForFile']();
 }
 
+export function BrowseForMPV() {
+  return window['go']['main']['App']['BrowseForMPV']();
+}
+
+export function GetMPVPath() {
+  return window['go']['main']['App']['GetMPVPath']();
+}
+
 export function GetMPVStatus() {
   return window['go']['main']['App']['GetMPVStatus']();
 }

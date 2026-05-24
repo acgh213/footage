@@ -78,3 +78,28 @@ func (a *App) GetPresets() ([]preset.Preset, error) {
 func (a *App) GetMPVStatus() bool {
 	return a.player.IsRunning()
 }
+
+// GetMPVPath returns the resolved mpv binary path, or an empty string if mpv
+// was not found. Used by the UI to show a diagnostic.
+func (a *App) GetMPVPath() string {
+	return a.player.ResolvedPath()
+}
+
+// BrowseForMPV opens a file picker so the user can manually locate mpv.exe.
+// The selected path is saved to config and the player is re-initialized.
+func (a *App) BrowseForMPV() (string, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "locate mpv.exe",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "executables", Pattern: "*.exe"},
+			{DisplayName: "all files", Pattern: "*"},
+		},
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	a.config.MPVPath = path
+	_ = config.Save(a.config)
+	a.player = player.New(path)
+	return path, nil
+}
