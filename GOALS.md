@@ -59,7 +59,7 @@ polish, export formats, and cross-session features.
 
 ## non-goals
 
-- **not a video editor.** no timeline, no compositing, no transitions, no effects, no rendering
+- **not a video editor.** no timeline, no compositing, no transitions, no effects, no rendering. Footage extracts clips via remux — it doesn't edit them
 - **not a media player replacement.** Footage doesn't play video — it controls a player. the video window is mpv or VLC
 - **not a streaming tool.** no broadcast, no OBS integration, no live capture
 - **not a collaboration tool.** single-user, local-first. share the manifest if you want, but Footage doesn't sync

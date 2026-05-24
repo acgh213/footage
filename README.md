@@ -16,7 +16,7 @@ you have hours of game captures. you know there's good stuff in there — firefi
 
 ## philosophy
 
-- **not a video editor.** no timeline, no compositing, no effects. Footage is for logging, not cutting. export clips and open DaVinci if you want to edit
+- **not a video editor.** no timeline, no compositing, no effects, no transitions. Footage exports clips via remux (stream copy, zero quality loss) — but it doesn't edit them. open DaVinci if you want to do more than extract segments
 - **local-first.** your footage, your tags, your hardware. whisper runs locally. LLM queries run against your own models
 - **JSONL manifest.** same battle-tested pattern as the screenshot cataloger. your data is plain text on disk, not locked in a database
 - **control surface.** Footage runs alongside your video player — it's a deck, not a viewer. the video plays externally, the logging happens here
