@@ -16,6 +16,8 @@ export function DeleteRegion(arg1:string):Promise<void>;
 
 export function ExportRegion(arg1:string):Promise<string>;
 
+export function GetInProgressRegions():Promise<Array<region.InProgressRegion>>;
+
 export function GetMPVPath():Promise<string>;
 
 export function GetMPVStatus():Promise<boolean>;

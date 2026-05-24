@@ -109,3 +109,31 @@ func (t *Toggle) IsOpen(videoPath, tagKey string) bool {
 	_, ok := t.open[key(videoPath, tagKey)]
 	return ok
 }
+
+// OpenRegionInfo is a snapshot of an in-progress region.
+type OpenRegionInfo struct {
+	TagKey    string
+	TagLabel  string
+	TagColor  string
+	VideoPath string
+	StartSec  float64
+}
+
+// InProgress returns all open regions for the given video path.
+func (t *Toggle) InProgress(videoPath string) []OpenRegionInfo {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	var result []OpenRegionInfo
+	for _, o := range t.open {
+		if o.videoPath == videoPath {
+			result = append(result, OpenRegionInfo{
+				TagKey:    o.tagKey,
+				TagLabel:  o.tagLabel,
+				TagColor:  o.tagColor,
+				VideoPath: o.videoPath,
+				StartSec:  o.startSec,
+			})
+		}
+	}
+	return result
+}

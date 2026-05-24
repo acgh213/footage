@@ -187,6 +187,24 @@ export namespace region {
 		    return a;
 		}
 	}
+	export class InProgressRegion {
+	    tag_key: string;
+	    tag_label: string;
+	    tag_color: string;
+	    start_sec: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new InProgressRegion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.tag_key = source["tag_key"];
+	        this.tag_label = source["tag_label"];
+	        this.tag_color = source["tag_color"];
+	        this.start_sec = source["start_sec"];
+	    }
+	}
 
 }
 

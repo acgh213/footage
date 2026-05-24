@@ -335,6 +335,29 @@ func (a *App) ExportRegion(entryID string) (string, error) {
 	return "", fmt.Errorf("region %s not found", entryID)
 }
 
+// GetInProgressRegions returns regions currently being recorded for the active video.
+// Used by the frontend to show live in-progress entries before they are closed.
+func (a *App) GetInProgressRegions() []region.InProgressRegion {
+	if a.session == nil {
+		return nil
+	}
+	videoPath := a.session.ActiveFile()
+	if videoPath == "" {
+		return nil
+	}
+	infos := a.toggle.InProgress(videoPath)
+	result := make([]region.InProgressRegion, len(infos))
+	for i, info := range infos {
+		result[i] = region.InProgressRegion{
+			TagKey:   info.TagKey,
+			TagLabel: info.TagLabel,
+			TagColor: info.TagColor,
+			StartSec: info.StartSec,
+		}
+	}
+	return result
+}
+
 // ── diagnostics ──────────────────────────────────────────────────────────────
 
 // GetMPVStatus returns true if mpv is currently running.

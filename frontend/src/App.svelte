@@ -2,7 +2,7 @@
   import {
     GetSession, GetPresets, GetMPVPath, BrowseForMPV,
     GetTimePos, StopPlayer, GetOpenTags, GetRegions,
-    OpenFile
+    GetInProgressRegions, OpenFile
   } from '../wailsjs/go/main/App.js'
   import type { preset as presetNS } from '../wailsjs/go/models'
   import SessionPanel from './lib/SessionPanel.svelte'
@@ -11,7 +11,7 @@
   import NotesField from './lib/NotesField.svelte'
   import Transport from './lib/Transport.svelte'
   import {
-    currentSession, presets, activePreset, entries, openTags
+    currentSession, presets, activePreset, entries, openTags, inProgressRegions
   } from './stores/session'
   import {
     timePos, mpvRunning, paused, speed, startPolling, stopPolling
@@ -58,7 +58,17 @@
     try {
       const t = await GetOpenTags()
       openTags.set(t ?? [])
+      const ip = await GetInProgressRegions()
+      inProgressRegions.set(ip ?? [])
     } catch {}
+  }
+
+  function fmt(s: number): string {
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    const sec = (s % 60).toFixed(1)
+    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${sec.padStart(4,'0')}`
+    return `${String(m).padStart(2,'0')}:${sec.padStart(4,'0')}`
   }
 
   async function browseMPV() {
@@ -167,12 +177,25 @@
 
     <!-- right column: region list + notes -->
     <div class="right-col">
+      {#if $inProgressRegions.length > 0}
+        <div class="recording-banner">
+          {#each $inProgressRegions as ip}
+            <span class="recording-tag" style="--tag-color: {ip.tag_color};">
+              <span class="rec-dot">●</span>
+              <span class="rec-key">{ip.tag_key}</span>
+              {ip.tag_label}
+              <span class="rec-time">{fmt($timePos - ip.start_sec)}s</span>
+            </span>
+          {/each}
+        </div>
+      {/if}
       <NotesField
         on:saved={refreshEntries}
         on:error={e => setStatus(e.detail, false)}
       />
       <section class="panel region-panel">
         <RegionList
+          inProgress={$inProgressRegions}
           on:refresh={refreshEntries}
           on:status={e => setStatus(e.detail, true)}
           on:error={e => setStatus(e.detail, false)}
@@ -325,6 +348,50 @@
 
   .stop-btn:hover:not(:disabled) {
     opacity: 1;
+  }
+
+  .recording-banner {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  .recording-tag {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border: 1px solid var(--tag-color, var(--accent));
+    background: color-mix(in srgb, var(--tag-color, var(--accent)) 12%, transparent);
+    font-size: 12px;
+  }
+
+  .rec-dot {
+    color: var(--tag-color, var(--accent));
+    font-size: 9px;
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  .rec-key {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 0 4px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .rec-time {
+    color: var(--tag-color, var(--accent));
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    margin-left: 4px;
+    opacity: 0.8;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
   }
 
   .status {

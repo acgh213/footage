@@ -4,10 +4,12 @@ import type { session, region, preset as presetNS } from '../../wailsjs/go/model
 type Session = session.Session
 type Entry = region.Entry
 type Preset = presetNS.Preset
+export type InProgressRegion = region.InProgressRegion
 
 export const currentSession = writable<Session | null>(null)
 export const entries = writable<Entry[]>([])
 export const openTags = writable<string[]>([])
+export const inProgressRegions = writable<InProgressRegion[]>([])
 export const presets = writable<Preset[]>([])
 export const activePreset = writable<Preset | null>(null)
 

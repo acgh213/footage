@@ -40,8 +40,6 @@
 
   function handleKey(e: KeyboardEvent) {
     if (!$mpvRunning || !$activePreset) return
-    const target = e.target as HTMLElement
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
     for (const tag of $activePreset.tags) {
       if (e.key === tag.key) {
         e.preventDefault()

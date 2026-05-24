@@ -30,7 +30,7 @@ not
 ---
 
 - not a video editor. no timeline, no compositing, no transitions. footage
-  remuxes clips out — open davinci if you want to actually edit
+  remuxes clips out, open davinci if you want to actually edit
 - not a media player. footage controls mpv externally. the video window is
   mpv's window
 - not a streaming or capture tool. no obs, no broadcast
@@ -81,9 +81,6 @@ links
 
 - omg          [starsetbyte.lol](https://starsetbyte.lol)
 - github       [github.com/acgh213](https://github.com/acgh213)
-- bluesky      _(placeholder)_
-- twitch       _(placeholder)_
-- youtube      _(placeholder)_
 
 keys
 ----

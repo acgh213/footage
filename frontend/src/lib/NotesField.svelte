@@ -1,18 +1,26 @@
 <script lang="ts">
   import { UpdateNotes } from '../../wailsjs/go/main/App.js'
   import { pendingNotes } from '../stores/session'
-  import { createEventDispatcher, tick } from 'svelte'
+  import { createEventDispatcher, tick, afterUpdate } from 'svelte'
 
   const dispatch = createEventDispatcher()
 
   let textarea: HTMLTextAreaElement
   let notes = ''
+  let shouldFocus = false
 
-  // Auto-focus when pendingNotes is set
-  $: if ($pendingNotes && textarea) {
+  // When pendingNotes is set, schedule a focus after the DOM renders.
+  $: if ($pendingNotes) {
     notes = ''
-    tick().then(() => textarea?.focus())
+    shouldFocus = true
   }
+
+  afterUpdate(() => {
+    if (shouldFocus && textarea) {
+      shouldFocus = false
+      textarea.focus()
+    }
+  })
 
   async function save() {
     if (!$pendingNotes) return

@@ -38,6 +38,15 @@ type Bookmark struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// InProgressRegion is a region that has been opened but not yet closed.
+// Returned by the toggle for display in the UI before the region is committed.
+type InProgressRegion struct {
+	TagKey   string  `json:"tag_key"`
+	TagLabel string  `json:"tag_label"`
+	TagColor string  `json:"tag_color"`
+	StartSec float64 `json:"start_sec"`
+}
+
 // Entry is either a Region or Bookmark stored in the manifest.
 // Exactly one of Region/Bookmark is set; the other is nil.
 type Entry struct {

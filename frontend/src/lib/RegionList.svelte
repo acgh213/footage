@@ -1,11 +1,14 @@
 <script lang="ts">
   import { SeekToEntry, DeleteRegion, ExportRegion } from '../../wailsjs/go/main/App.js'
-  import { regionsByFile, entries } from '../stores/session'
-  import { mpvRunning } from '../stores/playback'
+  import { regionsByFile } from '../stores/session'
+  import type { InProgressRegion } from '../stores/session'
+  import { timePos, mpvRunning } from '../stores/playback'
   import { createEventDispatcher } from 'svelte'
   import type { region as regionNS } from '../../wailsjs/go/models'
 
   type Entry = regionNS.Entry
+
+  export let inProgress: InProgressRegion[] = []
 
   const dispatch = createEventDispatcher()
 
@@ -57,12 +60,23 @@
 </script>
 
 <div class="region-list">
-  <div class="panel-title">regions ({$regionsByFile.length})</div>
+  <div class="panel-title">regions ({$regionsByFile.length + inProgress.length})</div>
 
-  {#if $regionsByFile.length === 0}
+  {#if $regionsByFile.length === 0 && inProgress.length === 0}
     <div class="empty">no regions yet — use hotkeys to tag</div>
   {:else}
     <div class="list">
+      {#each inProgress as ip}
+        <div class="row ip-row" style="--tag-color: {ip.tag_color || '#a8c8e8'};">
+          <span class="color-bar"></span>
+          <span class="time">{fmt(ip.start_sec)}</span>
+          <span class="sep">→</span>
+          <span class="time ip-now">{fmt($timePos)}</span>
+          <span class="dur ip-dur">({Math.max(0, $timePos - ip.start_sec).toFixed(1)}s)</span>
+          <span class="tag-label">{ip.tag_label || ip.tag_key}</span>
+          <span class="ip-indicator">● rec</span>
+        </div>
+      {/each}
       {#each $regionsByFile as e}
         {#if e.region}
           <div
@@ -222,5 +236,31 @@
     color: var(--text-dim);
     font-size: 12px;
     padding: 8px 0;
+  }
+
+  .ip-row {
+    opacity: 0.9;
+    border-bottom-color: var(--tag-color, var(--accent));
+  }
+
+  .ip-now {
+    color: var(--text-dim);
+  }
+
+  .ip-dur {
+    color: var(--tag-color, var(--accent));
+  }
+
+  .ip-indicator {
+    font-size: 10px;
+    color: var(--tag-color, var(--accent));
+    margin-left: auto;
+    animation: pulse 1s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
   }
 </style>

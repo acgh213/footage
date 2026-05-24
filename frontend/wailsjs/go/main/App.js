@@ -26,6 +26,10 @@ export function ExportRegion(arg1) {
   return window['go']['main']['App']['ExportRegion'](arg1);
 }
 
+export function GetInProgressRegions() {
+  return window['go']['main']['App']['GetInProgressRegions']();
+}
+
 export function GetMPVPath() {
   return window['go']['main']['App']['GetMPVPath']();
 }
