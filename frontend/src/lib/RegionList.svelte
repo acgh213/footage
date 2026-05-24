@@ -1,16 +1,25 @@
 <script lang="ts">
   import { SeekToEntry, DeleteRegion, ExportRegion } from '../../wailsjs/go/main/App.js'
-  import { regionsByFile } from '../stores/session'
+  import { regionsByFile, entries } from '../stores/session'
   import type { InProgressRegion } from '../stores/session'
   import { timePos, mpvRunning } from '../stores/playback'
   import { createEventDispatcher } from 'svelte'
   import type { region as regionNS } from '../../wailsjs/go/models'
+  import RegionEditor from './RegionEditor.svelte'
+  import ConfirmDelete from './ConfirmDelete.svelte'
 
   type Entry = regionNS.Entry
+  type Region = regionNS.Region
 
   export let inProgress: InProgressRegion[] = []
 
   const dispatch = createEventDispatcher()
+
+  let expandedId: string | null = null
+  let confirmDeleteId: string | null = null
+
+  // All closed regions across session (for merge candidates)
+  $: allRegions = $entries.filter(e => !!e.region).map(e => e.region!) as Region[]
 
   function fmt(s: number): string {
     if (s === undefined || s === null) return '--:--'
@@ -21,7 +30,7 @@
     return `${String(m).padStart(2,'0')}:${sec.padStart(4,'0')}`
   }
 
-  function duration(r: regionNS.Region): string {
+  function duration(r: Region): string {
     if (!r.end_sec) return '…'
     const d = r.end_sec - r.start_sec
     return d.toFixed(1) + 's'
@@ -29,6 +38,10 @@
 
   function entryId(e: Entry): string {
     return e.region?.id ?? e.bookmark?.id ?? ''
+  }
+
+  function toggleExpand(id: string) {
+    expandedId = expandedId === id ? null : id
   }
 
   async function seek(id: string) {
@@ -40,13 +53,20 @@
     }
   }
 
-  async function remove(id: string) {
+  function requestDelete(id: string) {
+    confirmDeleteId = id
+  }
+
+  async function confirmDelete() {
+    if (!confirmDeleteId) return
     try {
-      await DeleteRegion(id)
+      await DeleteRegion(confirmDeleteId)
+      if (expandedId === confirmDeleteId) expandedId = null
       dispatch('refresh')
     } catch (ex) {
       dispatch('error', String(ex))
     }
+    confirmDeleteId = null
   }
 
   async function exportClip(id: string) {
@@ -59,8 +79,22 @@
   }
 </script>
 
+{#if confirmDeleteId}
+  <ConfirmDelete
+    on:confirm={confirmDelete}
+    on:cancel={() => confirmDeleteId = null}
+  />
+{/if}
+
 <div class="region-list">
-  <div class="panel-title">regions ({$regionsByFile.length + inProgress.length})</div>
+  <div class="list-header">
+    <span class="panel-title">regions ({$regionsByFile.length + inProgress.length})</span>
+    {#if $regionsByFile.length > 0}
+      <button class="batch-btn" on:click={() => dispatch('openBatch')} title="batch export">
+        batch export
+      </button>
+    {/if}
+  </div>
 
   {#if $regionsByFile.length === 0 && inProgress.length === 0}
     <div class="empty">no regions yet — use hotkeys to tag</div>
@@ -77,30 +111,42 @@
           <span class="ip-indicator">● rec</span>
         </div>
       {/each}
+
       {#each $regionsByFile as e}
         {#if e.region}
+          {@const r = e.region}
+          {@const expanded = expandedId === r.id}
           <div
             class="row region-row"
+            class:expanded
             role="button"
             tabindex="0"
-            on:click={() => seek(entryId(e))}
-            on:keydown={ev => ev.key === 'Enter' && seek(entryId(e))}
-            style="--tag-color: {e.region.tag_color || '#a8c8e8'};"
+            on:click={() => { seek(r.id); toggleExpand(r.id) }}
+            on:keydown={ev => ev.key === 'Enter' && seek(r.id)}
+            style="--tag-color: {r.tag_color || '#a8c8e8'};"
           >
             <span class="color-bar"></span>
-            <span class="time">{fmt(e.region.start_sec)}</span>
+            <span class="time">{fmt(r.start_sec)}</span>
             <span class="sep">→</span>
-            <span class="time">{fmt(e.region.end_sec)}</span>
-            <span class="dur">({duration(e.region)})</span>
-            <span class="tag-label">{e.region.tag_label || e.region.tag_key}</span>
-            {#if e.region.notes}
-              <span class="notes" title={e.region.notes}>{e.region.notes}</span>
+            <span class="time">{fmt(r.end_sec)}</span>
+            <span class="dur">({duration(r)})</span>
+            <span class="tag-label">{r.tag_label || r.tag_key}</span>
+            {#if r.notes}
+              <span class="notes" title={r.notes}>{r.notes}</span>
             {/if}
             <div class="actions">
-              <button on:click|stopPropagation={() => exportClip(entryId(e))} title="export clip">↗</button>
-              <button on:click|stopPropagation={() => remove(entryId(e))} title="delete" class="del">×</button>
+              <button on:click|stopPropagation={() => exportClip(r.id)} title="export clip">↗</button>
+              <button on:click|stopPropagation={() => requestDelete(r.id)} title="delete" class="del">×</button>
             </div>
           </div>
+          {#if expanded}
+            <RegionEditor
+              region={r}
+              {allRegions}
+              on:changed={() => { dispatch('refresh'); expandedId = null }}
+              on:error={ev => dispatch('error', ev.detail)}
+            />
+          {/if}
         {:else if e.bookmark}
           <div
             class="row bookmark-row"
@@ -115,7 +161,7 @@
               <span class="notes" title={e.bookmark.notes}>{e.bookmark.notes}</span>
             {/if}
             <div class="actions">
-              <button on:click|stopPropagation={() => remove(entryId(e))} title="delete" class="del">×</button>
+              <button on:click|stopPropagation={() => requestDelete(entryId(e))} title="delete" class="del">×</button>
             </div>
           </div>
         {/if}
@@ -134,17 +180,34 @@
     min-height: 0;
   }
 
+  .list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
   .panel-title {
     color: var(--text-dim);
     font-size: 11px;
     letter-spacing: 0.05em;
-    flex-shrink: 0;
+  }
+
+  .batch-btn {
+    font-size: 11px;
+    padding: 2px 6px;
+    color: var(--accent);
+    border-color: var(--accent);
+    opacity: 0.7;
+  }
+
+  .batch-btn:hover {
+    opacity: 1;
   }
 
   .list {
     display: flex;
     flex-direction: column;
-    gap: 2px;
   }
 
   .row {
@@ -159,6 +222,11 @@
 
   .row:hover {
     background: var(--bg2);
+  }
+
+  .row.expanded {
+    background: var(--bg2);
+    border-bottom-color: transparent;
   }
 
   .color-bar {

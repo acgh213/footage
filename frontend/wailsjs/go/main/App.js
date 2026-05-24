@@ -10,6 +10,14 @@ export function AddFileToSession(arg1) {
   return window['go']['main']['App']['AddFileToSession'](arg1);
 }
 
+export function BatchExport(arg1, arg2) {
+  return window['go']['main']['App']['BatchExport'](arg1, arg2);
+}
+
+export function BrowseForExportDir() {
+  return window['go']['main']['App']['BrowseForExportDir']();
+}
+
 export function BrowseForFile() {
   return window['go']['main']['App']['BrowseForFile']();
 }
@@ -66,8 +74,16 @@ export function LoadSession(arg1) {
   return window['go']['main']['App']['LoadSession'](arg1);
 }
 
+export function MergeRegions(arg1, arg2) {
+  return window['go']['main']['App']['MergeRegions'](arg1, arg2);
+}
+
 export function NewSession(arg1) {
   return window['go']['main']['App']['NewSession'](arg1);
+}
+
+export function NudgeRegion(arg1, arg2, arg3) {
+  return window['go']['main']['App']['NudgeRegion'](arg1, arg2, arg3);
 }
 
 export function OpenFile(arg1) {
@@ -90,6 +106,10 @@ export function RemoveFileFromSession(arg1) {
   return window['go']['main']['App']['RemoveFileFromSession'](arg1);
 }
 
+export function SearchRegions(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['SearchRegions'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function Seek(arg1, arg2) {
   return window['go']['main']['App']['Seek'](arg1, arg2);
 }
@@ -100,6 +120,10 @@ export function SeekToEntry(arg1) {
 
 export function SetActiveFile(arg1) {
   return window['go']['main']['App']['SetActiveFile'](arg1);
+}
+
+export function SetRegionTime(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetRegionTime'](arg1, arg2, arg3);
 }
 
 export function SetSpeed(arg1) {

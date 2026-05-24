@@ -358,6 +358,122 @@ func (a *App) GetInProgressRegions() []region.InProgressRegion {
 	return result
 }
 
+// ── editing ───────────────────────────────────────────────────────────────────
+
+// NudgeRegion adjusts the start or end of a region by delta seconds.
+// field must be "start" or "end".
+func (a *App) NudgeRegion(entryID, field string, delta float64) error {
+	if a.session == nil {
+		return fmt.Errorf("no active session")
+	}
+	return region.Nudge(a.session.ID, entryID, field, delta)
+}
+
+// SetRegionTime sets the start or end of a region to an absolute value.
+func (a *App) SetRegionTime(entryID, field string, value float64) error {
+	if a.session == nil {
+		return fmt.Errorf("no active session")
+	}
+	return region.Set(a.session.ID, entryID, field, value)
+}
+
+// MergeRegions merges two adjacent same-tag regions into one.
+func (a *App) MergeRegions(idA, idB string) error {
+	if a.session == nil {
+		return fmt.Errorf("no active session")
+	}
+	return region.Merge(a.session.ID, idA, idB)
+}
+
+// SearchRegions filters the current session's regions by the given query.
+func (a *App) SearchRegions(tags []string, video, text string, minDur, maxDur float64) ([]region.Entry, error) {
+	if a.session == nil {
+		return nil, fmt.Errorf("no active session")
+	}
+	entries, err := region.ReadAll(a.session.ID)
+	if err != nil {
+		return nil, err
+	}
+	q := region.Query{
+		Tags:         tags,
+		Video:        video,
+		ContainsText: text,
+		MinDuration:  minDur,
+		MaxDuration:  maxDur,
+	}
+	return region.Filter(entries, q), nil
+}
+
+// ── batch export ──────────────────────────────────────────────────────────────
+
+// BatchExportProgress is a progress update sent during a batch export.
+type BatchExportProgress struct {
+	RegionID string `json:"region_id"`
+	OutPath  string `json:"out_path,omitempty"`
+	ErrMsg   string `json:"err,omitempty"`
+	Done     bool   `json:"done"`
+}
+
+// BatchExport exports a list of region IDs to the given output directory.
+// Progress events are emitted on the "batch-progress" Wails event channel.
+// Returns the number of successfully exported clips.
+func (a *App) BatchExport(regionIDs []string, outDir string) (int, error) {
+	if a.session == nil {
+		return 0, fmt.Errorf("no active session")
+	}
+	allEntries, err := region.ReadAll(a.session.ID)
+	if err != nil {
+		return 0, err
+	}
+
+	idSet := make(map[string]bool, len(regionIDs))
+	for _, id := range regionIDs {
+		idSet[id] = true
+	}
+
+	var regions []region.Region
+	for _, e := range allEntries {
+		if e.Region != nil && idSet[e.Region.ID] {
+			regions = append(regions, *e.Region)
+		}
+	}
+
+	if outDir == "" {
+		// Default to exports/ beside the first region's video.
+		if len(regions) > 0 {
+			outDir = filepath.Join(filepath.Dir(regions[0].VideoPath), "exports")
+		} else {
+			return 0, fmt.Errorf("no matching regions found")
+		}
+	}
+
+	succeeded := 0
+	export.RunBatch(context.Background(), regions, outDir, a.config.FFmpegPath,
+		func(r export.BatchResult) {
+			msg := ""
+			if r.Err != nil {
+				msg = r.Err.Error()
+			} else {
+				succeeded++
+			}
+			runtime.EventsEmit(a.ctx, "batch-progress", BatchExportProgress{
+				RegionID: r.RegionID,
+				OutPath:  r.OutPath,
+				ErrMsg:   msg,
+				Done:     r.Err == nil,
+			})
+		},
+	)
+	return succeeded, nil
+}
+
+// BrowseForExportDir opens a folder picker for choosing a batch export directory.
+func (a *App) BrowseForExportDir() (string, error) {
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "choose export folder",
+	})
+}
+
 // ── diagnostics ──────────────────────────────────────────────────────────────
 
 // GetMPVStatus returns true if mpv is currently running.

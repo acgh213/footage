@@ -10,6 +10,7 @@
   import RegionList from './lib/RegionList.svelte'
   import NotesField from './lib/NotesField.svelte'
   import Transport from './lib/Transport.svelte'
+  import BatchExportDialog from './lib/BatchExportDialog.svelte'
   import {
     currentSession, presets, activePreset, entries, openTags, inProgressRegions
   } from './stores/session'
@@ -22,6 +23,7 @@
   let status = ''
   let statusOk = true
   let mpvPath = ''
+  let showBatch = false
 
   function setStatus(msg: string, ok: boolean) {
     status = msg
@@ -122,6 +124,13 @@
   init()
 </script>
 
+{#if showBatch}
+  <BatchExportDialog
+    on:close={() => showBatch = false}
+    on:error={e => setStatus(e.detail, false)}
+  />
+{/if}
+
 <main>
   <header>
     <span class="title">footage</span>
@@ -199,6 +208,7 @@
           on:refresh={refreshEntries}
           on:status={e => setStatus(e.detail, true)}
           on:error={e => setStatus(e.detail, false)}
+          on:openBatch={() => showBatch = true}
         />
       </section>
     </div>

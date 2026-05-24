@@ -8,6 +8,10 @@ export function AddBookmark():Promise<region.Bookmark>;
 
 export function AddFileToSession(arg1:string):Promise<session.Session>;
 
+export function BatchExport(arg1:Array<string>,arg2:string):Promise<number>;
+
+export function BrowseForExportDir():Promise<string>;
+
 export function BrowseForFile():Promise<string>;
 
 export function BrowseForMPV():Promise<string>;
@@ -36,7 +40,11 @@ export function ListSessions():Promise<Array<session.Session>>;
 
 export function LoadSession(arg1:string):Promise<session.Session>;
 
+export function MergeRegions(arg1:string,arg2:string):Promise<void>;
+
 export function NewSession(arg1:string):Promise<session.Session>;
+
+export function NudgeRegion(arg1:string,arg2:string,arg3:number):Promise<void>;
 
 export function OpenFile(arg1:string):Promise<void>;
 
@@ -48,11 +56,15 @@ export function PressTag(arg1:string,arg2:string,arg3:string):Promise<region.Reg
 
 export function RemoveFileFromSession(arg1:string):Promise<session.Session>;
 
+export function SearchRegions(arg1:Array<string>,arg2:string,arg3:string,arg4:number,arg5:number):Promise<Array<region.Entry>>;
+
 export function Seek(arg1:number,arg2:boolean):Promise<void>;
 
 export function SeekToEntry(arg1:string):Promise<void>;
 
 export function SetActiveFile(arg1:number):Promise<void>;
+
+export function SetRegionTime(arg1:string,arg2:string,arg3:number):Promise<void>;
 
 export function SetSpeed(arg1:number):Promise<void>;
 
