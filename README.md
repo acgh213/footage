@@ -1,54 +1,91 @@
-# Footage
+footage
+=======
 
-a logging deck for game footage. watch, tag, annotate, catalog.
+a logging deck for game footage. tag regions with hotkeys, batch-export clips,
+search the catalog later.
 
-you have hours of game captures. you know there's good stuff in there — firefights, clutch moments, cutscenes, dumb glitches — but finding anything later means scrubbing through a timeline blind. Footage is the tool you use to mark what matters while you watch, so you can find it again later.
+what
+----
 
-## what it does
+- log with hotkeys. tap to open a region, tap the same key to close it. one
+  open region per tag per video. different tags can have simultaneous regions
+- tag presets, global. a destiny raid preset, a cyberpunk combat preset, a
+  noita run preset. saved once, available everywhere
+- batch export via ffmpeg stream copy. fast, lossless, approximate on
+  keyframes. log first, select, export later
+- searchable catalog. tag, date, game, duration, free-text notes
+- local LLM pop-up on Ctrl+L. drives the UI through tool calls, not a chat
+  sidebar
+- audio description transcription with whisper (v0.4.0+). context-level, not
+  word-for-word
+- screenshot annotation via vision model on extracted frames (v0.4.0+)
 
-- **log footage with hotkeys.** assign tags to regions as you watch — tap once to start, tap again to stop. firefight. boss encounter. menu. traversal. cutscene. you define the tags
-- **tag presets.** save tag groups for your games — a Destiny raid preset, a Cyberpunk combat preset, a Noita run preset. available everywhere, no per-project setup
-- **batch export.** after logging, check off the segments you want to extract and remux them to files. no re-encoding, no quality loss
-- **searchable catalog.** query your footage by tag, date, game, duration, or free-text notes. type "oryx wipe" and get every segment you marked
-- **local LLM integration.** a pop-up overlay that can search the manifest, answer questions about your footage, and drive the UI — not a chat sidebar, a tool that executes commands
-- **audio description transcription.** run whisper locally on tagged segments for context-level transcription — enough to know what's being said in a clip, not a full transcript
-- **screenshot annotation.** grab frames from tagged regions and feed them through a vision model for visual search
-
-## philosophy
-
-- **not a video editor.** no timeline, no compositing, no effects, no transitions. Footage exports clips via remux (stream copy, zero quality loss) — but it doesn't edit them. open DaVinci if you want to do more than extract segments
-- **local-first.** your footage, your tags, your hardware. whisper runs locally. LLM queries run against your own models
-- **JSONL manifest.** same battle-tested pattern as the screenshot cataloger. your data is plain text on disk, not locked in a database
-- **control surface.** Footage runs alongside your video player — it's a deck, not a viewer. the video plays externally, the logging happens here
-
-## architecture (planned)
-
-```
-Footage (GUI)                     mpv/VLC (external player)
-┌─────────────────────┐           ┌──────────────────────┐
-│  ┌───────────────┐  │   sync    │                      │
-│  │  session      │  │◄────────►│  video playback      │
-│  │  file list    │  │  (IPC)   │                      │
-│  │               │  │           └──────────────────────┘
-│  ├───────────────┤  │
-│  │  tag panel    │  │
-│  │  (hotkeys)    │  │
-│  │               │  │
-│  ├───────────────┤  │
-│  │  region list  │  │
-│  │  (log)        │  │
-│  │               │  │
-│  ├───────────────┤  │
-│  │  notes        │  │
-│  │               │  │
-│  └───────────────┘  │
-└─────────────────────┘
-```
-
-## naming
-
-named in the tradition of Snow Leopard era Apple: one word, a noun, the thing you work with. you open Footage, and you log your footage.
-
+why
 ---
 
-*built for people who have hours of game captures and want to actually find the good parts.*
+hours of captures. good stuff buried in them. scrubbing blind is bad. mark
+it while you watch.
+
+not
+---
+
+- not a video editor. no timeline, no compositing, no transitions. footage
+  remuxes clips out — open davinci if you want to actually edit
+- not a media player. footage controls mpv externally. the video window is
+  mpv's window
+- not a streaming or capture tool. no obs, no broadcast
+- not a collaboration tool. single-user, local-first
+
+architecture
+------------
+
+footage is a wails app (go + webview) that drives bundled mpv over a JSON
+IPC named pipe (`\\.\pipe\footage-mpv`). manifest is JSONL on disk in the
+session folder. python backend (`footage.py`, v0.4.0+) runs whisper and
+vision via an ndjson subprocess.
+
+```
+footage (GUI, wails)              mpv (external, bundled)
++--------------------+           +----------------------+
+|  session           |   sync    |                      |
+|  file list         |<--------->|  video playback      |
+|                    |   (IPC)   |                      |
++--------------------+           +----------------------+
+|  tag panel         |
+|  (hotkeys)         |
++--------------------+
+|  region list       |
++--------------------+
+|  notes             |
++--------------------+
+```
+
+docs
+----
+
+- [design.md](DESIGN.md)         architecture, data model, GUI, decisions
+- [goals.md](GOALS.md)           versioned roadmap, non-goals
+- [plan.md](PLAN.md)             phased implementation breakdown
+- [changelog.md](CHANGELOG.md)   version history
+- [docs/schema.md](docs/schema.md)  manifest schema v1
+- [claude.md](CLAUDE.md)         instructions for AI coding assistants
+
+cassie
+======
+
+she/her. builds tools for her own game footage and screenshot piles.
+footage is one of them.
+
+links
+-----
+
+- omg          [starsetbyte.lol](https://starsetbyte.lol)
+- github       [github.com/acgh213](https://github.com/acgh213)
+- bluesky      _(placeholder)_
+- twitch       _(placeholder)_
+- youtube      _(placeholder)_
+
+keys
+----
+
+- pgp          _(placeholder — paste fingerprint here)_

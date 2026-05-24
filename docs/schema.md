@@ -1,14 +1,15 @@
-# manifest schema
+manifest schema
+===============
 
-the manifest is a JSONL file (one JSON object per line) in the session folder.
+version 1. seconds are truth, ULIDs are stable, append while logging,
+rewrite on edits.
 
-each line is a region, a bookmark, or a session metadata entry. the `kind` field distinguishes them.
+the manifest is a JSONL file (one JSON object per line) in the session
+folder. each line is a region, a bookmark, or a session metadata entry.
+the `kind` field distinguishes them.
 
-## version
-
-current schema version: **1**
-
-## region
+region
+------
 
 a tagged segment in a video.
 
@@ -52,13 +53,21 @@ a tagged segment in a video.
 
 ### rules
 
-- **seconds are truth.** `start_sec` and `end_sec` are the authoritative time values. `display_start` and `display_end` are derived display sugar. mpv and ffmpeg consume seconds. never parse display timestamps for logic.
-- **IDs are ULIDs.** use `01JM8XK4Y7Q...` format. sortable by creation time, globally unique. no auto-increment integers.
-- **regions can overlap.** two regions in the same video with overlapping time ranges are valid. the UI handles nesting display.
-- **one open region per tag per video.** during logging, only one region of a given tag can be open at a time in a single video. pressing the tag hotkey toggles that tag's open region.
-- **`updated_at` updates on any edit.** adjusting times, editing notes, merging regions — all update `updated_at`.
+- seconds are truth. `start_sec` and `end_sec` are authoritative.
+  `display_start` and `display_end` are derived sugar. mpv and ffmpeg
+  consume seconds. never parse display timestamps for logic
+- IDs are ULIDs. `01JM8XK4Y7Q...` format. sortable by creation time,
+  globally unique. no auto-increment integers
+- regions can overlap. two regions in the same video with overlapping
+  time ranges are valid. the UI handles nesting display
+- one open region per tag per video. during logging, only one region
+  of a given tag can be open at a time in a single video. pressing
+  the tag hotkey toggles that tag's open region
+- `updated_at` updates on any edit. adjusting times, editing notes,
+  merging — all update `updated_at`
 
-## bookmark
+bookmark
+--------
 
 a timestamp marker. no end time, no region.
 
@@ -79,14 +88,19 @@ a timestamp marker. no end time, no region.
 
 ### differences from regions
 
-- **no `end_sec`** — bookmarks are a single point in time
-- **no `tag`** — bookmarks aren't tagged. they're just "come back to this"
-- **no `preset`** — bookmarks are preset-independent
-- **`time_sec`** replaces `start_sec`/`end_sec`
-- **`display_time`** replaces `display_start`/`display_end`
+- no `end_sec`. bookmarks are a single point in time
+- no `tag`. bookmarks aren't tagged. they're just "come back to this"
+- no `preset`. bookmarks are preset-independent
+- `time_sec` replaces `start_sec`/`end_sec`
+- `display_time` replaces `display_start`/`display_end`
 
-## file lifecycle
+file lifecycle
+--------------
 
-- **append-only during logging.** each region close or bookmark creation appends one line to `manifest.jsonl`. no in-place edits while logging
-- **rewrite on edits.** adjusting times, deleting, merging — the entire file is rewritten atomically (write to temp → rename)
-- **no event log in v0.1.** the manifest is current state. an `events.jsonl` audit log may be added later if revision history is needed
+- append-only during logging. each region close or bookmark creation
+  appends one line to `manifest.jsonl`. no in-place edits while logging
+- rewrite on edits. adjusting times, deleting, merging — the entire
+  file is rewritten atomically (write to temp → rename)
+- no event log in v0.1. the manifest is current state. an
+  `events.jsonl` audit log may be added later if revision history is
+  needed

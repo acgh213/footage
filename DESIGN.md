@@ -1,49 +1,57 @@
-# ✧ Footage — design document ✧
+design
+======
 
-## architecture
+architecture
+------------
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Footage (GUI application)                    │
-│                                                                 │
-│  ┌─────────────┐  ┌──────────────┐  ┌───────────────────────┐  │
-│  │  session    │  │   tag panel  │  │     region list       │  │
-│  │  (files)    │  │  (presets,   │  │  (timeline of marked  │  │
-│  │             │  │   hotkeys)   │  │   segments, live)     │  │
-│  └─────────────┘  └──────────────┘  └───────────────────────┘  │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  transport bar  ▶ ⏸ ⏮ 5s ⏭ 30s  1x 1.5x 2x 4x            ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                                                                 │
-│                         │                                       │
-│              IPC (mpv JSON API)                                │
-│                         │                                       │
-│              ┌──────────────────────┐                           │
-│              │  mpv                 │                           │
-│              │  (external window,   │                           │
-│              │   bundled)           │                           │
-│              └──────────────────────┘                           │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │               Python backend (footage.py)                 │   │
-│  │  ┌──────────┐  ┌────────────┐  ┌────────────────────┐   │   │
-│  │  │ whisper  │  │  vision    │  │  LLM (query engine) │   │   │
-│  │  │ (audio)  │  │ (frames)   │  │                     │   │   │
-│  │  └──────────┘  └────────────┘  └────────────────────┘   │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------+
+|                     footage (GUI application)                    |
+|                                                                 |
+|  +-------------+  +--------------+  +-----------------------+   |
+|  |  session    |  |   tag panel  |  |     region list       |   |
+|  |  (files)    |  |  (presets,   |  |  (timeline of marked  |   |
+|  |             |  |   hotkeys)   |  |   segments, live)     |   |
+|  +-------------+  +--------------+  +-----------------------+   |
+|                                                                 |
+|  +-----------------------------------------------------------+  |
+|  |  transport bar  > || prev 5s  next 30s   1x 1.5x 2x 4x   |  |
+|  +-----------------------------------------------------------+  |
+|                                                                 |
+|                         |                                       |
+|              IPC (mpv JSON API)                                 |
+|                         |                                       |
+|              +----------------------+                           |
+|              |  mpv                 |                           |
+|              |  (external window,   |                           |
+|              |   bundled)           |                           |
+|              +----------------------+                           |
+|                                                                 |
+|  +----------------------------------------------------------+   |
+|  |               python backend (footage.py)                |   |
+|  |  +----------+  +------------+  +--------------------+   |   |
+|  |  | whisper  |  |  vision    |  | LLM (query engine) |   |   |
+|  |  | (audio)  |  | (frames)   |  |                    |   |   |
+|  |  +----------+  +------------+  +--------------------+   |   |
+|  +----------------------------------------------------------+   |
++-----------------------------------------------------------------+
 ```
 
-**GUI** handles the logging deck: session management, tag presets, hotkey input, region editing, notes, transport control. **Python backend** handles heavy lifting: whisper transcription, vision model annotation, LLM queries. Communication via NDJSON subprocess — same pattern as the screenshot cataloger and chisel.
+the GUI handles the logging deck: session management, tag presets, hotkey
+input, region editing, notes, transport control. the python backend
+handles heavy lifting: whisper transcription, vision annotation, and
+(deferred from v0.3.0) LLM-orchestrated queries. communication is ndjson
+over subprocess — same pattern as the screenshot cataloger and chisel.
 
-## player integration
+player integration
+------------------
 
-Footage doesn't embed a video player. It controls one externally via IPC.
+footage doesn't embed a video player. it controls one externally via IPC.
 
-### mpv (primary)
+### mpv (primary, bundled, sole)
 
-mpv exposes a JSON IPC API over a named pipe or socket. Footage sends commands and reads playback position:
+mpv exposes a JSON IPC API over a named pipe. footage sends commands and
+reads playback position:
 
 ```
 # Windows named pipe
@@ -55,37 +63,45 @@ mpv exposes a JSON IPC API over a named pipe or socket. Footage sends commands a
 {"command": ["get_property", "time-position"]}
 ```
 
-Benefits:
-- Open source, fast, handles any format
-- Scriptable IPC, no HTTP overhead
-- Bundled with Footage — zero setup
+benefits:
 
-## data model
+- open source, fast, handles any format
+- scriptable IPC, no HTTP overhead
+- bundled with footage, zero setup
+
+reference: <https://mpv.io/manual/stable/#json-ipc>
+
+data model
+----------
 
 ### session
 
-A session is a *focus set* — a group of video files you're working through. Files aren't moved or copied. The session just tracks which files are in the set and what's been logged.
+a session is a *focus set* — a group of video files you're working
+through. files aren't moved or copied. the session just tracks which
+files are in the set and what's been logged.
 
 ```
 my-session/
-├── session.json          # session metadata: name, created, files[]
-├── manifest.jsonl        # tagged regions and bookmarks
-└── exports/              # remuxed clips (created on batch export)
++- session.json          # session metadata: name, created, files[]
++- manifest.jsonl        # tagged regions and bookmarks
++- exports/              # remuxed clips (created on batch export)
 ```
 
 ### manifest format
 
-See **[docs/schema.md](docs/schema.md)** for the full manifest schema. Key points:
+see [docs/schema.md](docs/schema.md) for the full schema. key points:
 
-- **Stable ULIDs** for regions, bookmarks, sessions, and videos
-- **Seconds as source of truth** — `start_sec` and `end_sec` are authoritative. Display timestamps are derived sugar
-- **Append-only during logging, rewritten on edits** — no event log in v0.1
-- **Regions overlap.** Flat storage, UI handles nesting display
-- **Bookmarks are `kind: "bookmark"`** — a single timestamp, no region, no tag
+- stable ULIDs for regions, bookmarks, sessions, videos
+- seconds are source of truth. `start_sec`/`end_sec` are authoritative.
+  display timestamps are derived sugar
+- append-only during logging, rewrite on edits. no event log in v0.1
+- regions can overlap. flat storage, UI handles nesting display
+- bookmarks are `kind: "bookmark"`. single timestamp, no end, no tag
 
 ### tag presets
 
-Presets are global, stored in `%APPDATA%/Footage/presets/`. Each preset is a JSON file:
+presets are global, stored in `%APPDATA%/Footage/presets/`. each preset
+is a JSON file:
 
 ```json
 {
@@ -104,105 +120,156 @@ Presets are global, stored in `%APPDATA%/Footage/presets/`. Each preset is a JSO
 }
 ```
 
-`auto_notes` controls whether a notes field appears automatically when closing a tag region.
+`auto_notes` controls whether a notes field appears automatically when
+closing a tag region.
 
-## GUI design
+GUI design
+----------
 
 ### layout
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│  Footage — destiny2_raid_2021.mp4                    — □ ✕     │
-├────────────┬─────────────────────────┬─────────────────────────┤
-│  SESSION   │                         │  REGIONS                │
-│            │      TAG PRESET         │                         │
-│  📁 raid   │  ┌───────────────────┐  │  00:03:12 — 00:05:47    │
-│   🎬 oryx │  │ desting-raid      │  │  🔴 boss encounter       │
-│   🎬 gate │  │                   │  │  first Oryx clear        │
-│  📁 pvp   │  │ 1  boss encounter │  │                         │
-│   🎬 ib   │  │ 2  traversal      │  │  00:08:30 — 00:10:15    │
-│   🎬 tri │  │ 3  adds clear     │  │  🔵 traversal             │
-│            │  │ 4  wipe           │  │                         │
-│            │  │ 5  loot / chest   │  │  00:12:00 — 00:14:45    │
-│            │  │ 6  menu / loadout │  │  🟢 adds clear            │
-│            │  │ 7  cutscene       │  │                         │
-│            │  │ 0  bookmark       │  │  ▶ 00:16:22 — ...       │
-│            │  │                   │  │  🟡 bookmark             │
-│            │  └───────────────────┘  │                         │
-│            │                         │                         │
-│            │  NOTES                  │                         │
-│            │  ┌───────────────────┐  │                         │
-│            │  │ (active or last)  │  │                         │
-│            │  │                   │  │                         │
-│            │  └───────────────────┘  │                         │
-├────────────┴─────────────────────────┴─────────────────────────┤
-│  ▶ ⏸  ⏮5s  ⏭30s   1x 1.5x 2x 4x   ████████████░░░  12:34     │
-└────────────────────────────────────────────────────────────────┘
++----------------------------------------------------------------+
+|  footage  -  destiny2_raid_2021.mp4                    _ [] x  |
++------------+-------------------------+-------------------------+
+|  SESSION   |                         |  REGIONS                |
+|            |      TAG PRESET         |                         |
+|  + raid    |  +-------------------+  |  00:03:12 - 00:05:47    |
+|    > oryx  |  | destiny-raid      |  |  [1] boss encounter     |
+|    > gate  |  |                   |  |  first oryx clear       |
+|  + pvp     |  | 1  boss encounter |  |                         |
+|    > ib    |  | 2  traversal      |  |  00:08:30 - 00:10:15    |
+|    > tri   |  | 3  adds clear     |  |  [2] traversal          |
+|            |  | 4  wipe           |  |                         |
+|            |  | 5  loot / chest   |  |  00:12:00 - 00:14:45    |
+|            |  | 6  menu / loadout |  |  [3] adds clear         |
+|            |  | 7  cutscene       |  |                         |
+|            |  | 0  bookmark       |  |  > 00:16:22 - ...       |
+|            |  |                   |  |  [b] bookmark           |
+|            |  +-------------------+  |                         |
+|            |                         |                         |
+|            |  NOTES                  |                         |
+|            |  +-------------------+  |                         |
+|            |  | (active or last)  |  |                         |
+|            |  +-------------------+  |                         |
++------------+-------------------------+-------------------------+
+|  >  ||   -5s  +30s    1x 1.5x 2x 4x   [============   ]  12:34 |
++----------------------------------------------------------------+
 ```
 
 ### interaction model
 
-1. **Load a session** — drag video files in, or open a folder. They appear in the session panel
-2. **Pick a preset** — dropdown of your saved tag groups. The hotkeys load
-3. **Play** — mpv launches and starts playing. Footage syncs playback position via IPC
-4. **Tag as you watch** — tap `1` when a boss encounter starts, tap `1` again when it ends. The region appears in the list
-5. **Notes** — when you close a tag region, the notes field focuses for quick annotation
-6. **Jump around** — transport bar controls mpv. Seek back 5 seconds, skip ahead 30
-7. **Variable speed** — 1.5x, 2x, 4x for fast-forwarding through traversal sections
-8. **Bookmarks** — tap `0` for "come back to this." One tap, no region to close
+1. load a session — drag video files in, or open a folder. they appear
+   in the session panel
+2. pick a preset — dropdown of your saved tag groups. the hotkeys load
+3. play — mpv launches. footage syncs playback position via IPC
+4. tag as you watch — tap `1` when a boss encounter starts, tap `1`
+   again when it ends. the region appears in the list
+5. notes — when you close a region, the notes field focuses for quick
+   annotation
+6. jump around — transport bar controls mpv. seek back 5 seconds, skip
+   ahead 30
+7. variable speed — 1.5x, 2x, 4x for fast-forwarding through traversal
+8. bookmarks — tap `0` for "come back to this." one tap, no region to
+   close
 
 ### hotkey precision
 
-- **one open region per tag per video.** pressing `1` opens a boss encounter region. pressing `1` again closes it. pressing `2` while `1` is open opens a traversal region — both can be open simultaneously, but only one of each tag type
-- **bookmarks are separate.** the bookmark hotkey creates `kind: "bookmark"` entries. they are not regions with missing end times
-- **closing a region auto-focuses notes.** when you close a tag region, the notes field receives focus for quick annotation
+- one open region per tag per video. pressing `1` opens a boss
+  encounter region. pressing `1` again closes it. pressing `2` while
+  `1` is open opens a traversal region — both can be open
+  simultaneously, but only one of each tag type
+- bookmarks are separate. the bookmark hotkey creates `kind: "bookmark"`
+  entries. they are not regions with missing end times
+- closing a region auto-focuses notes. when you close a region, the
+  notes field receives focus
 
 ### LLM pop-up
 
-`Ctrl+L` opens a pop-up overlay, not a sidebar. It's an interaction, not a persistent chat. The LLM can:
+`Ctrl+L` opens a pop-up overlay, not a sidebar. it's an interaction,
+not a persistent chat. the LLM can:
 
-- Search the manifest ("show me every wipe from the Oryx encounter")
-- Jump the video ("go to the first boss encounter in this clip")
-- Answer questions ("what was I doing at 14:30 in this video?")
-- Drive the UI — the LLM returns commands, not just text
+- search the manifest ("show me every wipe from the oryx encounter")
+- jump the video ("go to the first boss encounter in this clip")
+- answer questions ("what was i doing at 14:30 in this video?")
+- drive the UI — the LLM returns commands, not just text
 
-The pop-up closes when you dismiss it. It doesn't linger. You summon it for a task, get the result, move on.
+the pop-up closes when you dismiss it. it doesn't linger. you summon
+it for a task, get the result, move on.
 
-## backend processing
+backend processing
+------------------
 
 ### audio description transcription
 
-Run whisper locally on tagged regions. Not full dialogue transcription — context-level:
-- "Two speakers, one is giving instructions, gunfire in background"
-- Speaker identification for multi-speaker segments
-- Key phrases extracted, not full text
+run whisper locally on tagged regions. not full dialogue transcription —
+context-level:
 
-This runs as a batch job after logging — select regions, queue whisper, get descriptions back into the manifest.
+- "two speakers, one giving instructions, gunfire in background"
+- speaker identification for multi-speaker segments
+- key phrases extracted, not full text
+
+runs as a batch job after logging — select regions, queue whisper, get
+descriptions back into the manifest.
 
 ### screenshot annotation
 
-Extract frames from tagged regions (start, middle, end + key frames) and feed them through the same vision model pipeline as the screenshot cataloger. Annotated frames link back to their parent region in the manifest.
+extract frames from tagged regions (start, middle, end + key frames)
+and feed them through the same vision pipeline as the screenshot
+cataloger. annotated frames link back to their parent region in the
+manifest.
 
 ### LLM query engine
 
-The Python backend loads the manifest and provides a query interface. The LLM (local, same infrastructure as chisel) can:
-- Execute structured searches against the manifest
-- Generate human-readable answers from manifest data
-- Return UI commands (seek, load, filter)
+the python backend loads the manifest and provides a query interface.
+the local LLM (same infrastructure as chisel) can:
 
-## decisions
+- execute structured searches against the manifest
+- generate human-readable answers from manifest data
+- return UI commands (seek, load, filter)
 
-- **GUI, not TUI.** Windows state sync between TUI and external video player is unreliable. A GUI can embed or IPC-sync with mpv cleanly
-- **mpv as sole player.** JSON IPC is fast, scriptable, and bundled. No VLC fallback — one player, one integration path
-- **Tag presets are global.** Saved in AppData, available to all sessions. No per-project preset management
-- **Regions are flat, overlap is allowed.** The UI handles nesting display. The manifest doesn't enforce hierarchy
-- **Batch export, not live clipping.** Logging and exporting are separate passes. Log first, export later
-- **LLM is a pop-up, not a sidebar.** It's summoned for a task, not a persistent conversation partner
-- **JSONL manifest.** Same proven pattern. Append-only during logging, rewritten on edits
-- **Multiple files per session.** Pull files into a focus set. They don't move. You work through them in order
-- **Go + Wails for the GUI.** Keeps us in the Go ecosystem. Produces native-feeling Windows apps via webview. Same language as the TUI projects, lower cognitive overhead
-- **mpv bundled.** Footage ships with mpv included. Zero setup — open the app, start logging. Larger download, but "install mpv first" is friction we don't want
-- **Sessions persist with explicit new.** Closing Footage and reopening restores the last session — same files, same manifest, same state. "New session" starts fresh. Both paths are a single click
-- **Full region editing.** After tagging, you can adjust start/end times (nudge or type), delete regions, and merge adjacent regions with the same tag. The log is mutable
-- **One open region per tag per video.** Pressing a tag hotkey toggles that tag's open region. Different tags can have simultaneous open regions. Bookmarks are `kind: "bookmark"`, not regions with missing end times
-- **ffmpeg stream copy is approximate.** Remux export is fast and lossless, but cuts may land on keyframes depending on codec. Documented tradeoff. Accurate re-encode mode later
+note: in v0.3.0 the LLM is wired directly from go via HTTP — no python
+required. the python backend in v0.4.0 absorbs the LLM path when
+whisper/vision arrive, so all heavy work lives in one process.
+
+decisions
+---------
+
+- GUI, not TUI. windows state sync between a TUI and external video
+  player is unreliable. a GUI can IPC-sync with mpv cleanly
+- mpv as sole player. JSON IPC is fast, scriptable, and bundled. no
+  VLC fallback — one player, one integration path
+- tag presets are global. saved in AppData, available to all sessions.
+  no per-project preset management
+- regions are flat, overlap is allowed. the UI handles nesting display.
+  the manifest doesn't enforce hierarchy
+- batch export, not live clipping. logging and exporting are separate
+  passes. log first, export later
+- LLM is a pop-up, not a sidebar. it's summoned for a task, not a
+  persistent conversation partner
+- JSONL manifest. same proven pattern. append-only during logging,
+  rewritten on edits
+- multiple files per session. pull files into a focus set. they don't
+  move. work through them in order
+- go + wails for the GUI. keeps us in the go ecosystem. produces
+  native-feeling windows apps via webview. same language as the TUI
+  projects, lower cognitive overhead
+- mpv bundled. footage ships with mpv included. zero setup — open the
+  app, start logging. larger download, but "install mpv first" is
+  friction we don't want
+- sessions persist with explicit new. closing footage and reopening
+  restores the last session — same files, same manifest, same state.
+  "new session" starts fresh. both paths are a single click
+- full region editing. after tagging, you can adjust start/end times
+  (nudge or type), delete regions, and merge adjacent regions with the
+  same tag. the log is mutable
+- one open region per tag per video. pressing a tag hotkey toggles
+  that tag's open region. different tags can have simultaneous open
+  regions. bookmarks are `kind: "bookmark"`, not regions with missing
+  end times
+- ffmpeg stream copy is approximate. remux export is fast and
+  lossless, but cuts may land on keyframes depending on codec.
+  documented tradeoff. accurate re-encode mode later
+- python absorbs LLM in v0.4.0. go calls the LLM directly in v0.3.0
+  (no python needed for query-only). once whisper/vision arrive, all
+  heavy work consolidates into the python subprocess

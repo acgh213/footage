@@ -1,0 +1,25 @@
+# build output
+build/bin/
+frontend/dist/
+frontend/node_modules/
+
+# go
+go.sum
+
+# bundled binaries (download separately with scripts/get-mpv.ps1)
+assets/mpv/*.exe
+assets/mpv/*.dll
+assets/mpv/mpv_*
+
+# wails dev
+*.exe
+!build/windows/installer/*.exe
+
+# IDE
+.idea/
+.vscode/settings.json
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store

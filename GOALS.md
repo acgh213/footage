@@ -1,82 +1,170 @@
-# ✧ Footage — goals & roadmap ✧
+goals
+=====
 
-## v0.1.0 — "prove the deck"
+versioned roadmap. each version closes a loop. don't ship a version that
+doesn't.
 
-the goal: watch a video, tag regions with hotkeys, extract a clip. close the loop.
+v0.1.0 — prove the deck
+-----------------------
 
-- [ ] **session management.** create a session, drag or browse to add video files, open an existing session. sessions persist — close Footage, reopen, pick up where you left off
-- [ ] **mpv integration.** launch bundled mpv from Footage, sync playback position, transport controls (play, pause, seek)
-- [ ] **tag presets.** define tag groups with hotkeys and colors. save/load presets from disk
-- [ ] **live tagging.** tap hotkey to open a region, tap again to close. one open region per tag per video. regions appear in the list with start time, end time, tag label, color
-- [ ] **bookmarks.** one-tap bookmark hotkey. `kind: "bookmark"`, not a region with missing end time
-- [ ] **notes.** auto-focus notes field when closing a region. free-text annotation
-- [ ] **region list.** scrollable list of tagged regions, sorted by time. click to jump video to that region
-- [ ] **transport bar.** play/pause, seek back 5s, skip ahead 30s, variable speed (1x, 1.5x, 2x, 4x)
-- [ ] **manifest output.** all tagged regions and bookmarks saved to `manifest.jsonl`. schema per [docs/schema.md](docs/schema.md): stable ULIDs, seconds as truth
-- [ ] **multiple files per session.** queue up several videos in a session. finish one, move to the next
-- [ ] **single-region export.** right-click a region → export clip via ffmpeg stream copy (fast, lossless, approximate keyframe accuracy)
+watch a video, tag regions with hotkeys, extract a clip. that's the loop.
+
+- [ ] session management. create a session, drag or browse to add video
+      files, open an existing session. sessions persist — close footage,
+      reopen, pick up where you left off
+- [ ] mpv integration. launch bundled mpv from footage, sync playback
+      position, transport controls (play, pause, seek)
+- [ ] tag presets. define tag groups with hotkeys and colors. save/load
+      from disk
+- [ ] live tagging. tap a hotkey to open a region, tap again to close.
+      one open region per tag per video. regions appear in the list with
+      start, end, label, color
+- [ ] bookmarks. one-tap bookmark hotkey. `kind: "bookmark"`, not a
+      region with a missing end time
+- [ ] notes. auto-focus notes field on region close. free-text annotation
+- [ ] region list. scrollable, sorted by time, click to seek
+- [ ] transport bar. play/pause, seek back 5s, skip ahead 30s, variable
+      speed (1x, 1.5x, 2x, 4x)
+- [ ] manifest output. all regions and bookmarks saved to
+      `manifest.jsonl` per [docs/schema.md](docs/schema.md): stable ULIDs,
+      seconds as truth
+- [ ] multiple files per session. queue several videos. finish one, move
+      to the next
+- [ ] single-region export. right-click → export via ffmpeg stream copy.
+      fast, lossless, approximate on keyframes
 
 ### v0.1.0 validation
 
-the first runnable app is even smaller than v0.1.0. before building the full logger, validate the scariest seam:
+before the full logger, validate the scariest seam:
 
-1. Wails window opens
-2. Loads presets
-3. User picks a video file
+1. wails window opens
+2. loads presets
+3. user picks a video file
 4. mpv launches
-5. "Get Time" button prints current mpv timestamp
+5. "get time" button prints current mpv timestamp
 
 that's the "will this even work" check. everything stacks on top.
 
-## v0.2.0 — "edit and batch"
+v0.2.0 — edit and batch
+-----------------------
 
 refine the log, get multiple clips out.
 
-- [ ] **region editing.** adjust start/end times after tagging (nudge or type). delete regions. merge adjacent regions with the same tag
-- [ ] **overlap handling.** display overlapping regions in the list with indentation or nesting
-- [ ] **batch export UI.** checkbox column in region list. select all / select by tag / select by search. export selected to `exports/`
+- [ ] region editing. adjust start/end (nudge or type). delete. merge
+      adjacent regions with the same tag
+- [ ] overlap handling. display overlapping regions with indentation
+- [ ] batch export UI. checkbox column. select all / by tag / by search.
+      export selected to `exports/`
 
-## v0.3.0 — "talk to your footage"
+v0.3.0 — talk to your footage
+-----------------------------
 
-the LLM becomes a query engine. no Python backend yet — Go calls the LLM API directly for manifest search.
+LLM as a query engine. no python yet — go calls the LLM API directly.
 
-- [ ] **LLM pop-up.** `Ctrl+L` opens a pop-up overlay. type a query, get a response, dismiss
-- [ ] **manifest search.** "show me every wipe from the Oryx encounter" → filtered region list
-- [ ] **video control.** "go to the first boss encounter" → LLM returns a seek command, Footage executes it
-- [ ] **contextual answers.** "what was happening at 14:30?" → LLM reads the manifest and answers
-- [ ] **provider config.** OpenAI-compatible endpoint, configurable model, local-first
+- [ ] LLM pop-up. `Ctrl+L` opens an overlay. type a query, get a
+      response, dismiss
+- [ ] manifest search. "show me every wipe from the oryx encounter" →
+      filtered region list
+- [ ] video control. "go to the first boss encounter" → LLM returns a
+      seek command, footage executes
+- [ ] contextual answers. "what was happening at 14:30?" → LLM reads the
+      manifest and answers
+- [ ] provider config. openai-compatible endpoint, configurable model,
+      local-first
 
-## v0.4.0 — "deeper intelligence"
+v0.4.0 — deeper intelligence
+----------------------------
 
-Python backend arrives for heavy lifting.
+python backend arrives for heavy lifting.
 
-- [ ] **Python backend.** `footage.py` subprocess with NDJSON protocol — same pattern as screenshot cataloger and chisel
-- [ ] **whisper integration.** select regions, queue audio description transcription. results write back to manifest
-- [ ] **screenshot annotation.** extract frames from tagged regions, feed through vision model, write descriptions back to manifest
+- [ ] python backend. `footage.py` subprocess, ndjson protocol — same
+      pattern as the screenshot cataloger and chisel
+- [ ] whisper integration. select regions, queue audio description.
+      results write back to manifest
+- [ ] screenshot annotation. extract frames from tagged regions, feed
+      through vision model, write descriptions back to manifest
 
-## v1.0.0 — "a real tool"
+v1.0.0 — a real tool
+--------------------
 
-polish, export formats, and cross-session features.
+polish, export formats, cross-session features.
 
-- [ ] **export formats.** remux to `.mp4` / `.mkv`, export region list as CSV, export manifest as JSON
-- [ ] **global search.** search across all sessions. "find every firefight from 2023"
-- [ ] **statistics.** most-used tags, total logged time, average segment duration, busiest logging days
-- [ ] **auto-advance.** option to auto-load the next file in the session when the current one finishes
-- [ ] **keyframe strip.** visual strip of frames from the current video for scrubbing reference
-- [ ] **preferences.** default speed, default preset, seek intervals, LLM settings
+- [ ] export formats. remux to mp4/mkv, csv export of region list, json
+      export of manifest
+- [ ] global search. across all sessions. "find every firefight from
+      2023"
+- [ ] statistics. most-used tags, total logged time, average segment
+      duration, busiest logging days
+- [ ] auto-advance. option to auto-load the next file when the current
+      finishes
+- [ ] keyframe strip. visual frame strip for scrubbing reference
+- [ ] preferences. default speed, default preset, seek intervals, LLM
+      settings
 
-## v1.1+ — "stretch goals"
+v1.1.0 — sync and multi-machine
+-------------------------------
 
-- [ ] **auto-tagging with vision.** batch process unlogged footage through vision model for initial region suggestions
-- [ ] **speaker diarization.** identify and label different speakers in multi-speaker segments
-- [ ] **game detection.** auto-detect which game a video is from based on HUD and visual patterns
-- [ ] **tag statistics and heatmaps.** "this 2-hour session was 40% combat, 25% traversal, 15% menus"
-- [ ] **export to edit decision list (EDL).** export region data in a format DaVinci Resolve / Premiere can import
+same captures on multiple machines, manifests stay in sync. single-user
+across machines, not multi-user collab.
 
-## non-goals
+- [ ] content-hash file tracking. videos identified by hash + path, so a
+      path can rebase per machine
+- [ ] manifest merge. last-write-wins per region by `updated_at`.
+      deletions as tombstones
+- [ ] sync-folder watcher. dropbox/syncthing-style folder, footage
+      notices manifest changes and reloads
 
-- **not a video editor.** no timeline, no compositing, no transitions, no effects, no rendering. Footage extracts clips via remux — it doesn't edit them
-- **not a media player replacement.** Footage doesn't play video — it controls mpv. the video window is mpv
-- **not a streaming tool.** no broadcast, no OBS integration, no live capture
-- **not a collaboration tool.** single-user, local-first. share the manifest if you want, but Footage doesn't sync
-- **not a general media cataloger.** this is for game footage. it might work for other things, but that's not the design target
+v1.2.0 — auto-tagging
+---------------------
+
+vision model proposes initial regions for unlogged footage. nothing
+commits without a human accept.
+
+- [ ] frame sampler. every N seconds, classify against current preset
+- [ ] proposal grouper. merge contiguous same-tag classifications into
+      proposed regions
+- [ ] proposals panel. accept / edit / reject. accepted ones become
+      real regions
+
+v1.3.0 — EDL + DAW handoff
+--------------------------
+
+footage extracts. for a real edit, hand off to a real NLE.
+
+- [ ] CMX 3600 EDL export
+- [ ] final cut pro XML export (imports into resolve and premiere)
+- [ ] opentimelineio export (broader compat)
+
+v1.4.0 — speaker diarization + game detection
+---------------------------------------------
+
+smarter metadata.
+
+- [ ] speaker diarization. pyannote-style speaker labels in
+      multi-speaker segments
+- [ ] game detection. HUD/visual classifier per game, tags the video's
+      metadata automatically
+- [ ] confidence fields on auto-written values. UI shows uncertainty
+
+stretch
+-------
+
+- [ ] tag heatmaps. "this 2-hour session was 40% combat, 25%
+      traversal, 15% menus"
+- [ ] keyboard-only workflow. no mouse for the full log → edit →
+      export loop
+
+non-goals
+---------
+
+- not a video editor. no timeline, no compositing, no transitions, no
+  effects, no rendering. footage remuxes clips out — it doesn't edit
+- not a media player replacement. footage doesn't play video — it
+  controls mpv
+- not a streaming tool. no broadcast, no obs integration, no live
+  capture
+- not a collaboration tool. single-user, local-first. share the
+  manifest if you want, but footage doesn't sync (across machines, yes
+  — across users, no)
+- not a general media cataloger. this is for game footage. it might
+  work for other things, but that's not the target
