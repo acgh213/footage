@@ -85,4 +85,4 @@ links
 keys
 ----
 
-- pgp          _(placeholder — paste fingerprint here)_
+- pgp          `F33D 2208 15F3 C29C 9AA5 08A4 E330 0B05 35DD FAFC`
