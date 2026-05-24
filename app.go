@@ -85,6 +85,12 @@ func (a *App) GetMPVPath() string {
 	return a.player.ResolvedPath()
 }
 
+// TestIPC queries mpv-version over IPC and returns the raw string.
+// Use this to verify the IPC connection is healthy.
+func (a *App) TestIPC() (string, error) {
+	return a.player.GetProperty("mpv-version")
+}
+
 // BrowseForMPV opens a file picker so the user can manually locate mpv.exe.
 // The selected path is saved to config and the player is re-initialized.
 func (a *App) BrowseForMPV() (string, error) {

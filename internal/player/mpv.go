@@ -71,6 +71,10 @@ func (p *Player) Start(videoPath string) error {
 		return fmt.Errorf("mpv IPC not ready: %w", err)
 	}
 
+	// Brief pause so mpv finishes its startup sequence before we start
+	// sending commands. Without this, early queries can return stale state.
+	time.Sleep(300 * time.Millisecond)
+
 	p.ipc = newIPC(conn)
 	return nil
 }
@@ -116,13 +120,46 @@ func (p *Player) IsRunning() bool {
 }
 
 // GetTimePos returns the current playback position in seconds.
+// Tries time-pos first (universally supported), then time-position (alias).
+// Returns 0, nil when mpv is loaded but position is not yet available.
 func (p *Player) GetTimePos() (float64, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.ipc == nil {
 		return 0, fmt.Errorf("mpv is not running")
 	}
-	return p.ipc.getFloat("get_property", "time-position")
+	v, err := p.ipc.getFloat("get_property", "time-pos")
+	if err != nil {
+		// Fall back to the alternate property name.
+		v, err = p.ipc.getFloat("get_property", "time-position")
+	}
+	if err != nil {
+		// "property unavailable" just means no file is loaded / seeking.
+		// Treat it as 0 rather than a hard error.
+		errStr := err.Error()
+		if strings.Contains(errStr, "unavailable") || strings.Contains(errStr, "not found") {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return v, nil
+}
+
+// GetProperty queries any named mpv property and returns it as a string.
+// Useful for diagnostics.
+func (p *Player) GetProperty(name string) (string, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.ipc == nil {
+		return "", fmt.Errorf("mpv is not running")
+	}
+	data, err := p.ipc.send("get_property", name)
+	if err != nil {
+		return "", err
+	}
+	// Strip surrounding quotes if mpv returned a JSON string.
+	s := strings.Trim(string(data), `"`)
+	return s, nil
 }
 
 // Seek seeks relative or absolute by delta seconds.

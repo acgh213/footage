@@ -33,3 +33,7 @@ export function OpenFile(arg1) {
 export function StopPlayer() {
   return window['go']['main']['App']['StopPlayer']();
 }
+
+export function TestIPC() {
+  return window['go']['main']['App']['TestIPC']();
+}

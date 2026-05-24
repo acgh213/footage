@@ -17,3 +17,5 @@ export function GetTimePos():Promise<number>;
 export function OpenFile(arg1:string):Promise<void>;
 
 export function StopPlayer():Promise<void>;
+
+export function TestIPC():Promise<string>;

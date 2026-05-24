@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BrowseForFile, OpenFile, GetTimePos, StopPlayer, GetPresets, GetMPVPath, BrowseForMPV } from '../wailsjs/go/main/App.js'
+  import { BrowseForFile, OpenFile, GetTimePos, StopPlayer, GetPresets, GetMPVPath, BrowseForMPV, TestIPC } from '../wailsjs/go/main/App.js'
   import type { preset } from '../wailsjs/go/models'
   type Preset = preset.Preset
 
@@ -56,6 +56,15 @@
       setStatus('mpv stopped', true)
     } catch (e) {
       setStatus(String(e), false)
+    }
+  }
+
+  async function testIPC() {
+    try {
+      const v = await TestIPC()
+      setStatus('IPC ok — ' + v, true)
+    } catch (e) {
+      setStatus('IPC error: ' + String(e), false)
     }
   }
 
@@ -127,6 +136,7 @@
       {#if timePos !== null}
         <span class="time-display">{formatTime(timePos)}</span>
       {/if}
+      <button on:click={testIPC} disabled={!running} title="query mpv-version to verify IPC health">test ipc</button>
     </div>
   </section>
 
