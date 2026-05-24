@@ -17,11 +17,12 @@
 │  └─────────────────────────────────────────────────────────────┘│
 │                                                                 │
 │                         │                                       │
-│              IPC (mpv JSON API / VLC HTTP)                      │
+│              IPC (mpv JSON API)                                │
 │                         │                                       │
 │              ┌──────────────────────┐                           │
-│              │  mpv / VLC           │                           │
-│              │  (external window)   │                           │
+│              │  mpv                 │                           │
+│              │  (external window,   │                           │
+│              │   bundled)           │                           │
 │              └──────────────────────┘                           │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
@@ -57,11 +58,7 @@ mpv exposes a JSON IPC API over a named pipe or socket. Footage sends commands a
 Benefits:
 - Open source, fast, handles any format
 - Scriptable IPC, no HTTP overhead
-- Can be bundled with Footage or pointed at an existing install
-
-### VLC (fallback)
-
-VLC's HTTP API on `localhost:8080` for basic transport control. Higher latency, less reliable for frame-accurate seeking. Fallback only.
+- Bundled with Footage — zero setup
 
 ## data model
 
@@ -72,29 +69,19 @@ A session is a *focus set* — a group of video files you're working through. Fi
 ```
 my-session/
 ├── session.json          # session metadata: name, created, files[]
-├── manifest.jsonl        # tagged regions, one JSON object per line
+├── manifest.jsonl        # tagged regions and bookmarks
 └── exports/              # remuxed clips (created on batch export)
 ```
 
-### manifest format (JSONL)
+### manifest format
 
-```json
-{
-  "video": "D:/Captures/destiny2_raid_2021.mp4",
-  "region": {"start": "00:03:12.500", "end": "00:05:47.200"},
-  "tag": "boss encounter",
-  "preset": "destiny-raid",
-  "notes": "first Oryx clear. wiped at final stand once. Octavio was screaming.",
-  "logged_at": "2026-06-01T14:22:00",
-  "transcript": null,
-  "screenshots": [],
-  "duration_sec": 154.7
-}
-```
+See **[docs/schema.md](docs/schema.md)** for the full manifest schema. Key points:
 
-A region without an end time is an *open region* — still being tagged. Tags are freeform strings. The `preset` field tracks which preset group the tag belongs to.
-
-Regions can overlap. Nested regions are stored flat in the manifest and the UI handles the nesting display. A QTE inside a boss encounter is two separate entries with overlapping time ranges.
+- **Stable ULIDs** for regions, bookmarks, sessions, and videos
+- **Seconds as source of truth** — `start_sec` and `end_sec` are authoritative. Display timestamps are derived sugar
+- **Append-only during logging, rewritten on edits** — no event log in v0.1
+- **Regions overlap.** Flat storage, UI handles nesting display
+- **Bookmarks are `kind: "bookmark"`** — a single timestamp, no region, no tag
 
 ### tag presets
 
@@ -164,6 +151,12 @@ Presets are global, stored in `%APPDATA%/Footage/presets/`. Each preset is a JSO
 7. **Variable speed** — 1.5x, 2x, 4x for fast-forwarding through traversal sections
 8. **Bookmarks** — tap `0` for "come back to this." One tap, no region to close
 
+### hotkey precision
+
+- **one open region per tag per video.** pressing `1` opens a boss encounter region. pressing `1` again closes it. pressing `2` while `1` is open opens a traversal region — both can be open simultaneously, but only one of each tag type
+- **bookmarks are separate.** the bookmark hotkey creates `kind: "bookmark"` entries. they are not regions with missing end times
+- **closing a region auto-focuses notes.** when you close a tag region, the notes field receives focus for quick annotation
+
 ### LLM pop-up
 
 `Ctrl+L` opens a pop-up overlay, not a sidebar. It's an interaction, not a persistent chat. The LLM can:
@@ -200,7 +193,7 @@ The Python backend loads the manifest and provides a query interface. The LLM (l
 ## decisions
 
 - **GUI, not TUI.** Windows state sync between TUI and external video player is unreliable. A GUI can embed or IPC-sync with mpv cleanly
-- **mpv as primary player.** JSON IPC is fast, scriptable, and mpv handles every video format. VLC as HTTP fallback
+- **mpv as sole player.** JSON IPC is fast, scriptable, and bundled. No VLC fallback — one player, one integration path
 - **Tag presets are global.** Saved in AppData, available to all sessions. No per-project preset management
 - **Regions are flat, overlap is allowed.** The UI handles nesting display. The manifest doesn't enforce hierarchy
 - **Batch export, not live clipping.** Logging and exporting are separate passes. Log first, export later
@@ -211,3 +204,5 @@ The Python backend loads the manifest and provides a query interface. The LLM (l
 - **mpv bundled.** Footage ships with mpv included. Zero setup — open the app, start logging. Larger download, but "install mpv first" is friction we don't want
 - **Sessions persist with explicit new.** Closing Footage and reopening restores the last session — same files, same manifest, same state. "New session" starts fresh. Both paths are a single click
 - **Full region editing.** After tagging, you can adjust start/end times (nudge or type), delete regions, and merge adjacent regions with the same tag. The log is mutable
+- **One open region per tag per video.** Pressing a tag hotkey toggles that tag's open region. Different tags can have simultaneous open regions. Bookmarks are `kind: "bookmark"`, not regions with missing end times
+- **ffmpeg stream copy is approximate.** Remux export is fast and lossless, but cuts may land on keyframes depending on codec. Documented tradeoff. Accurate re-encode mode later
