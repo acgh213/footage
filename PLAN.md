@@ -86,6 +86,6 @@ talk to your footage.
 
 - mpv named pipe on Windows: `\\.\pipe\footage-mpv`
 - preset storage: `%APPDATA%/Footage/presets/`
-- session storage: user-chosen directory
+- session storage: user-chosen directory (sessions persist between launches)
 - ffmpeg must be in PATH or configured in settings
 - all file paths use Go's `filepath` package, never hardcoded separators

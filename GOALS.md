@@ -4,7 +4,7 @@
 
 the goal: watch a video, tag regions with hotkeys, see them in a list. basic but usable.
 
-- [ ] **session management.** create a session, drag or browse to add video files, open an existing session
+- [ ] **session management.** create a session, drag or browse to add video files, open an existing session. sessions persist — close Footage, reopen, pick up where you left off
 - [ ] **mpv integration.** launch mpv from Footage, sync playback position, transport controls (play, pause, seek)
 - [ ] **tag presets.** define tag groups with hotkeys and colors. save/load presets from disk
 - [ ] **live tagging.** tap hotkey to start a region, tap again to close. regions appear in the list with start time, end time, tag label, color
@@ -22,7 +22,6 @@ batch processing arrives. the manifest becomes searchable.
 - [ ] **batch export.** check off regions in the list, click Export — remux selected segments to `exports/` using ffmpeg stream copy (no re-encode)
 - [ ] **region editing.** adjust start/end times after tagging. delete regions. merge adjacent regions with the same tag
 - [ ] **overlap handling.** display overlapping regions in the list with indentation or nesting
-- [ ] **persistent sessions.** close Footage, reopen next week, the session is where you left it — same files, same manifest, in-progress regions preserved
 - [ ] **Python backend.** `footage.py` subprocess for whisper, vision, and LLM operations
 - [ ] **whisper integration.** select regions, queue audio description transcription. results write back to manifest
 - [ ] **screenshot annotation.** extract frames from tagged regions, feed through vision model, write descriptions back to manifest

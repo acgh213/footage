@@ -207,13 +207,7 @@ The Python backend loads the manifest and provides a query interface. The LLM (l
 - **LLM is a pop-up, not a sidebar.** It's summoned for a task, not a persistent conversation partner
 - **JSONL manifest.** Same proven pattern. Append-only during logging, rewritten on edits
 - **Multiple files per session.** Pull files into a focus set. They don't move. You work through them in order
-
-## questions for Cassie
-
-1. **GUI framework.** Go + Wails keeps us in the Go ecosystem and produces a native-feeling Windows app. Python + PySide/PyQt is heavier but more flexible. Go + Fyne is pure Go but looks less polished. Preference?
-
-2. **mpv bundling.** Should Footage ship with mpv bundled (zero setup, larger download), or require mpv in PATH (lighter, one setup step)?
-
-3. **Session scope.** Does a session span one sitting (review clips, close app, done) or persist across sessions (reopen next week, pick up where you left off)?
-
-4. **Region editing.** After tagging, can you adjust start/end times? Delete regions? Merge adjacent regions with the same tag? Or is the log immutable once closed?
+- **Go + Wails for the GUI.** Keeps us in the Go ecosystem. Produces native-feeling Windows apps via webview. Same language as the TUI projects, lower cognitive overhead
+- **mpv bundled.** Footage ships with mpv included. Zero setup — open the app, start logging. Larger download, but "install mpv first" is friction we don't want
+- **Sessions persist with explicit new.** Closing Footage and reopening restores the last session — same files, same manifest, same state. "New session" starts fresh. Both paths are a single click
+- **Full region editing.** After tagging, you can adjust start/end times (nudge or type), delete regions, and merge adjacent regions with the same tag. The log is mutable
