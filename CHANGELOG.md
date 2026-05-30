@@ -22,6 +22,40 @@ versioning
 - v1.3.0 — EDL + DAW handoff. CMX 3600, fcpxml, otio export
 - v1.4.0 — speaker diarization + game detection
 
+0.2.1 — 2026-05-30
+------------------
+
+### fixed
+
+- frontend hang on launch — backend initialization moved out of OnStartup
+  into newApp() (initBackend), so config, player and session are guaranteed
+  non-nil before the webview can call any bound method. resolveMPVPath spawns
+  `cmd.exe /C where` subprocesses that could still be running when the frontend
+  called GetMPVPath, dereferencing a nil player and panicking; Wails v2 does
+  not reject the promise on a panic, so init() hung on its first await and
+  nothing loaded
+- mpv.net not detected — added mpvnet.com (a PE executable with a .com
+  extension), %LOCALAPPDATA%\Programs\mpv.net install paths, and the
+  Program Files mpv.net variants to auto-discovery
+- console window flash during mpv discovery — `where` probes now run with
+  CREATE_NO_WINDOW
+- presets silently failing to load — null-safe handling of GetPresets and
+  init errors surfaced in the status bar; init now runs in onMount
+
+0.2.0 — 2026-05-24
+------------------
+
+### added
+
+- region editing — nudge or set start/end timestamps with ±0.1s/±0.5s
+  buttons or direct entry; click a region row to expand an inline editor
+- merge adjacent same-tag regions (500ms tolerance, notes joined)
+- confirm-delete modal — no accidental region deletions
+- batch export dialog — per-region checkbox, tag filter, select-all/none,
+  custom output directory, per-region progress via Wails events, cancel-safe
+- SearchRegions backend for future filter UI
+- BatchExportProgress event on the batch-progress channel
+
 0.1.0 — 2026-05-24
 ------------------
 

@@ -25,11 +25,22 @@ type App struct {
 }
 
 func newApp() *App {
-	return &App{toggle: region.NewToggle()}
+	a := &App{toggle: region.NewToggle()}
+	a.initBackend()
+	return a
 }
 
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
+// initBackend performs all initialization that does not require the Wails
+// context. It runs in newApp() — before wails.Run() — so that a.config,
+// a.player and a.session are guaranteed non-nil by the time the frontend can
+// call any bound method.
+//
+// This used to live in startup() (OnStartup), which races the webview:
+// resolveMPVPath() spawns several `cmd.exe /C where` subprocesses and can
+// still be running when the frontend calls GetMPVPath. That dereferenced a
+// nil a.player and panicked; Wails v2 does not reject the promise on a panic,
+// so init() in the frontend hung on its first await and nothing loaded.
+func (a *App) initBackend() {
 	cfg, err := config.Load()
 	if err != nil {
 		cfg = config.Default()
@@ -46,6 +57,10 @@ func (a *App) startup(ctx context.Context) {
 		_ = session.Save(a.session)
 		_ = session.SavePointer(a.session.ID)
 	}
+}
+
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
 }
 
 func (a *App) shutdown(_ context.Context) {

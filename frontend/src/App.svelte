@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import {
     GetSession, GetPresets, GetMPVPath, BrowseForMPV,
     GetTimePos, StopPlayer, GetOpenTags, GetRegions,
@@ -33,18 +34,24 @@
   async function init() {
     try {
       mpvPath = await GetMPVPath()
-    } catch {}
+    } catch (e) {
+      setStatus('init: mpv path error: ' + String(e), false)
+    }
     try {
       const s = await GetSession()
       currentSession.set(s)
-    } catch {}
+    } catch (e) {
+      setStatus('init: session error: ' + String(e), false)
+    }
     try {
       const ps = await GetPresets()
-      presets.set(ps)
-      if (ps.length > 0 && !$activePreset) {
+      presets.set(ps ?? [])
+      if (ps && ps.length > 0 && !$activePreset) {
         activePreset.set(ps[0])
       }
-    } catch {}
+    } catch (e) {
+      setStatus('init: presets error: ' + String(e), false)
+    }
     await refreshEntries()
     await refreshOpenTags()
   }
@@ -121,7 +128,7 @@
     activePreset.set($presets.find(p => p.name === name) ?? null)
   }
 
-  init()
+  onMount(() => { init() })
 </script>
 
 {#if showBatch}
@@ -134,7 +141,7 @@
 <main>
   <header>
     <span class="title">footage</span>
-    <span class="subtitle">v0.1 — logging core</span>
+    <span class="subtitle">v0.2.1 — editing + batch export</span>
     <div class="header-right">
       <span class="mpv-path" class:not-found={!mpvPath} title={mpvPath || 'mpv not found'}>
         {mpvPath ? 'mpv ✓' : 'mpv not found'}

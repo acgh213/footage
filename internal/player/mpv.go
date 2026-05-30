@@ -241,7 +241,8 @@ func resolveMPVPath(configured string) string {
 	}
 
 	// Try LookPath with all common names for mpv on Windows.
-	for _, name := range []string{"mpv", "mpv.exe", "mpvnet", "mpvnet.exe"} {
+	// mpv.net installs as mpvnet.com (PE executable with .com extension).
+	for _, name := range []string{"mpv", "mpv.exe", "mpvnet", "mpvnet.exe", "mpvnet.com"} {
 		if path, err := exec.LookPath(name); err == nil {
 			return path
 		}
@@ -249,8 +250,11 @@ func resolveMPVPath(configured string) string {
 
 	// cmd.exe /C where — the Windows shell can find things the Go process misses
 	// when PATH was updated after the process launched (e.g. WinGet install).
-	for _, name := range []string{"mpv", "mpvnet"} {
-		out, err := exec.Command("cmd.exe", "/C", "where", name).Output()
+	// CREATE_NO_WINDOW (0x08000000) prevents a console flash in GUI apps.
+	for _, name := range []string{"mpv", "mpvnet", "mpvnet.com"} {
+		cmd := exec.Command("cmd.exe", "/C", "where", name)
+		cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000}
+		out, err := cmd.Output()
 		if err == nil {
 			if line := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]; line != "" {
 				line = strings.TrimSpace(line)
@@ -287,13 +291,25 @@ func resolveMPVPath(configured string) string {
 		}
 	}
 
-	// Common fixed install paths.
-	for _, p := range []string{
+	// Common fixed install paths, including %LOCALAPPDATA%\Programs\mpv.net
+	// (the default for mpv.net user installs and WinGet).
+	var fixedPaths []string
+	if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+		fixedPaths = append(fixedPaths,
+			filepath.Join(localAppData, "Programs", "mpv.net", "mpvnet.com"),
+			filepath.Join(localAppData, "Programs", "mpv.net", "mpvnet.exe"),
+			filepath.Join(localAppData, "Programs", "mpv.net", "mpv.exe"),
+			filepath.Join(localAppData, "Programs", "mpv", "mpv.exe"),
+		)
+	}
+	fixedPaths = append(fixedPaths,
 		`C:\Program Files\mpv\mpv.exe`,
-		`C:\Program Files\mpv.net\mpv.exe`,
+		`C:\Program Files\mpv.net\mpvnet.com`,
 		`C:\Program Files\mpv.net\mpvnet.exe`,
+		`C:\Program Files\mpv.net\mpv.exe`,
 		`C:\mpv\mpv.exe`,
-	} {
+	)
+	for _, p := range fixedPaths {
 		if _, err := os.Stat(p); err == nil {
 			return p
 		}
